@@ -1,0 +1,20 @@
+<!-- sidebar.html - теперь это шаблон для панели фильтров -->
+{% if filters %}
+<div class="filters-sidebar">
+    <h5>
+        <i class="bi bi-funnel"></i>
+        Фильтры
+    </h5>
+    
+    {% block filters_content %}{% endblock %}
+    
+    <div class="d-grid gap-2 mt-3">
+        <button type="submit" form="filter-form" class="btn btn-primary">
+            <i class="bi bi-search"></i> Применить
+        </button>
+        <a href="{{ request.path }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-counterclockwise"></i> Сбросить
+        </a>
+    </div>
+</div>
+{% endif %}

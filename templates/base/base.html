@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>
+        {% block title %}Учёт изготовления деталей{% endblock %} | Крон
+    </title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Google Fonts для делового стиля -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js для графиков (если понадобятся) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap5.min.css">
+        
+    <style>
+        :root {
+            --primary-color: #0b3b5c;
+            --secondary-color: #1e5f7a;
+            --accent-color: #3a8fb7;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-bg: #f4f7fc;
+            --dark-text: #2c3e50;
+            --border-color: #dee2e6;
+            --header-bg: #0a3147;
+        }
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+            padding-top: 70px; /* высота фиксированного хедера */
+            min-height: 100vh;
+            position: relative;
+            padding-bottom: 60px; /* высота футера */
+        }
+        
+        /* Хедер */
+        .navbar-custom {
+            background: linear-gradient(135deg, var(--header-bg) 0%, var(--primary-color) 100%);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 0.75rem 1rem;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1030;
+            border-bottom: 3px solid var(--accent-color);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white !important;
+            letter-spacing: 0.5px;
+            padding: 0.5rem 0;
+        }
+        
+        .navbar-brand small {
+            font-size: 0.9rem;
+            font-weight: 400;
+            opacity: 0.8;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-weight: 500;
+            padding: 0.75rem 1.25rem !important;
+            transition: all 0.2s;
+            border-radius: 6px;
+            margin: 0 2px;
+        }
+        
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white !important;
+            transform: translateY(-1px);
+        }
+        
+        .nav-link.active {
+            background-color: var(--accent-color);
+            color: white !important;
+        }
+        
+        .nav-link i {
+            margin-right: 8px;
+            font-size: 1.1rem;
+        }
+        
+        /* Профиль пользователя */
+        .user-menu {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            padding: 0.25rem 1rem 0.25rem 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            color: white;
+        }
+        
+        .user-info {
+            line-height: 1.3;
+        }
+        
+        .user-name {
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .user-role {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.7rem;
+        }
+        
+        /* Контент */
+        .main-content {
+            padding: 2rem;
+            min-height: calc(100vh - 130px);
+        }
+        
+        /* Сайдбар для фильтров */
+        .filters-sidebar {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+            height: fit-content;
+            border: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+        
+        .filters-sidebar h5 {
+            color: var(--primary-color);
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .filters-sidebar h5 i {
+            margin-right: 8px;
+            color: var(--accent-color);
+        }
+        
+        /* Карточки для контента */
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+        
+        /* Футер */
+        .footer {
+            background: white;
+            border-top: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            z-index: 1020;
+            font-size: 0.85rem;
+            color: #6c757d;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+        }
+        
+        /* Индикаторы и метрики */
+        .metric-card {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(11, 59, 92, 0.2);
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Прогресс бары */
+        .progress-custom {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #e9ecef;
+        }
+        
+        .progress-bar-custom {
+            background: linear-gradient(90deg, var(--accent-color), var(--secondary-color));
+            border-radius: 4px;
+        }
+        
+        /* Таблицы */
+        .table-custom {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .table-custom thead th {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-bottom: none;
+            padding: 1rem;
+        }
+        
+        .table-custom tbody tr:hover {
+            background: rgba(58, 143, 183, 0.05);
+        }
+        
+        /* Кнопки */
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background: var(--secondary-color);
+            border-color: var(--secondary-color);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(11, 59, 92, 0.2);
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1.2rem;
+            }
+            
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .user-menu {
+                margin-top: 1rem;
+                justify-content: center;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+    <!-- Хедер с навигацией -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <!-- Логотип и название -->
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-gear-fill me-2"></i>КРОН
+                <small>Учёт изготовления деталей</small>
+            </a>
+            
+            <!-- Кнопка для мобильной версии -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" 
+                    aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Основное меню -->
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">
+                            <i class="bi bi-speedometer2"></i>Дашборд
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if '/details/' in request.path %}active{% endif %}" href="/details/">
+                            <i class="bi bi-box"></i>Детали
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if '/machines/' in request.path %}active{% endif %}" href="/machines/">
+                            <i class="bi bi-cpu"></i>Станки
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if '/stages/' in request.path %}active{% endif %}" href="/stages/">
+                            <i class="bi bi-diagram-3"></i>Этапы
+                        </a>
+                    </li>
+                    
+                    <!-- Разделитель -->
+                    <li class="nav-item">
+                        <span class="nav-link disabled" style="opacity: 0.5;">|</span>
+                    </li>
+                    
+                    <!-- Администрирование (доступно только для staff) -->
+                    {% if request.user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/" target="_blank">
+                            <i class="bi bi-shield-lock"></i>Администрирование
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <!-- Блок пользователя -->
+                <div class="d-flex">
+                    {% if request.user.is_authenticated %}
+                    <div class="user-menu">
+                        <div class="user-avatar">
+                            {{ request.user.first_name|first|default:request.user.username|first|upper }}
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                            <div class="user-role">
+                                {% if request.user.is_superuser %}Администратор
+                                {% elif request.user.is_staff %}Мастер
+                                {% else %}Оператор{% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- ИСПРАВЛЕНО: форма вместо прямой ссылки -->
+                        <form method="post" action="{% url 'logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-light ms-3" 
+                                    style="border-color: rgba(255,255,255,0.3); color: white;"
+                                    onclick="return confirm('Вы уверены, что хотите выйти?');">
+                                <i class="bi bi-box-arrow-right"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-outline-light">
+                        <i class="bi bi-box-arrow-in-right"></i> Войти
+                    </a>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </nav>
+
+    <!-- Основной контент -->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Боковая панель с фильтрами (будет показываться только если есть блок filters) -->
+            {% if filters %}
+            <div class="col-lg-3 col-xl-2">
+                <div class="filters-sidebar">
+                    {% block filters %}{% endblock %}
+                </div>
+            </div>
+            <div class="col-lg-9 col-xl-10">
+            {% else %}
+            <div class="col-12">
+            {% endif %}
+                <div class="main-content">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Футер -->
+    <footer class="footer">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <i class="bi bi-c-circle me-1"></i> 2026 Крон - Производственное предприятие
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="me-3">
+                        <i class="bi bi-clock"></i> 
+                        {% now "d.m.Y H:i" %}
+                    </span>
+                    <span>
+                        <i class="bi bi-hdd-stack"></i> v1.0.0
+                    </span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS и зависимости -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- DataTables -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+    
+    <!-- Общие скрипты -->
+    <script>
+        // Автоматическое скрытие сообщений через 5 секунд
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                var alerts = document.querySelectorAll('.alert-dismissible');
+                alerts.forEach(function(alert) {
+                    var bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                });
+            }, 5000);
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
