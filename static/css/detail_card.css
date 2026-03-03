@@ -1,0 +1,32 @@
+/* Дополнительные стили для карточки */
+.machine-badge {
+    background: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    border: 1px solid #dee2e6;
+}
+
+#completionChart {
+    max-width: 80px;
+    max-height: 80px;
+}
+
+.stage-badge {
+    padding: 0.4rem 0.6rem;
+    font-weight: 500;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.modal-xl {
+    max-width: 1200px;
+}
+
+@media (min-width: 992px) {
+    .modal-xl {
+        max-width: 1140px;
+    }
+}

@@ -1,0 +1,409 @@
+:root {
+    --primary-color: #0b3b5c;
+    --secondary-color: #1e5f7a;
+    --accent-color: #3a8fb7;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --light-bg: #f4f7fc;
+    --dark-text: #2c3e50;
+    --border-color: #dee2e6;
+    --header-bg: #0a3147;
+}
+
+* {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+    background-color: var(--light-bg);
+    color: var(--dark-text);
+    padding-top: 70px; /* высота фиксированного хедера */
+    min-height: 100vh;
+    position: relative;
+    padding-bottom: 60px; /* высота футера */
+}
+
+/* Хедер */
+.navbar-custom {
+    background: linear-gradient(135deg, var(--header-bg) 0%, var(--primary-color) 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 0.75rem 1rem;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 1030;
+    border-bottom: 3px solid var(--accent-color);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: white !important;
+    letter-spacing: 0.5px;
+    padding: 0.5rem 0;
+}
+
+.navbar-brand small {
+    font-size: 0.9rem;
+    font-weight: 400;
+    opacity: 0.8;
+    display: block;
+    margin-top: 2px;
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.85) !important;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem !important;
+    transition: all 0.2s;
+    border-radius: 6px;
+    margin: 0 2px;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white !important;
+    transform: translateY(-1px);
+}
+
+.nav-link.active {
+    background-color: var(--accent-color);
+    color: white !important;
+}
+
+.nav-link i {
+    margin-right: 8px;
+    font-size: 1.1rem;
+}
+
+/* Профиль пользователя */
+.user-menu {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 30px;
+    padding: 0.25rem 1rem 0.25rem 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-avatar {
+    width: 35px;
+    height: 35px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    color: white;
+}
+
+.user-info {
+    line-height: 1.3;
+}
+
+.user-name {
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.user-role {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.7rem;
+}
+
+/* Контент */
+.main-content {
+    padding: 2rem;
+    min-height: calc(100vh - 130px);
+}
+        
+
+/* Стандартные стили для типовых страниц */
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 0.375rem 1.75rem 0.375rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    padding: 0.375rem 0.75rem;
+    min-width: 250px;
+}
+
+.dataTables_wrapper .dataTables_length select:focus,
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: var(--accent-color);
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(58, 143, 183, 0.25);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0.375rem 0.75rem;
+    margin: 0 2px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: white;
+    color: var(--primary-color) !important;
+    transition: all 0.2s;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: var(--primary-color);
+    color: white !important;
+    border-color: var(--primary-color);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: var(--primary-color);
+    color: white !important;
+    border-color: var(--primary-color);
+}
+
+.dataTables_wrapper .dataTables_info {
+    padding-top: 0.75rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+/* Карточка станка в таблице */
+.machine-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.machine-model {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.machine-inventory {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Индикатор загрузки */
+.load-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 120px;
+}
+
+.load-bar {
+    flex-grow: 1;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.load-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.load-fill.low { background: #28a745; }
+.load-fill.medium { background: #ffc107; }
+.load-fill.high { background: #dc3545; }
+
+/* Статус станка */
+.status-badge {
+    padding: 0.4rem 0.6rem;
+    font-weight: 500;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-badge i {
+    font-size: 0.6rem;
+}
+
+/* Текущая задача */
+.current-task {
+    background: rgba(58, 143, 183, 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    border: 1px solid rgba(58, 143, 183, 0.2);
+    max-width: 200px;
+}
+
+.current-task .detail-article {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.current-task .task-time {
+    font-size: 0.7rem;
+    color: #6c757d;
+}
+
+/* Индикатор ТО */
+.maintenance-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.maintenance-indicator.ok { background: #28a745; box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2); }
+.maintenance-indicator.warning { background: #ffc107; box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.2); }
+.maintenance-indicator.danger { background: #dc3545; box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2); }
+
+/* Метрики */
+.metrics-row {
+    margin-bottom: 2rem;
+}
+
+.metric-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--border-color);
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(11, 59, 92, 0.12);
+}
+
+.metric-card.primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+}
+
+.metric-card.success {
+    background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);
+    color: white;
+}
+
+.metric-card.warning {
+    background: linear-gradient(135deg, #b66d0d 0%, #ffc107 100%);
+    color: white;
+}
+
+.metric-card.danger {
+    background: linear-gradient(135deg, #b02a37 0%, #dc3545 100%);
+    color: white;
+}
+
+.metric-card.info {
+    background: linear-gradient(135deg, #117a8b 0%, #17a2b8 100%);
+    color: white;
+}
+
+.metric-icon {
+    font-size: 2.5rem;
+    opacity: 0.3;
+    position: absolute;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+}
+
+.metric-label {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metric-trend {
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    opacity: 0.8;
+}
+
+/* Таблица */
+#machinesTable {
+    margin-top: 1rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+#machinesTable thead th {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 1rem 0.75rem;
+    border-bottom: none;
+}
+
+#machinesTable thead th:first-child {
+    border-top-left-radius: 8px;
+}
+
+#machinesTable thead th:last-child {
+    border-top-right-radius: 8px;
+}
+
+#machinesTable tbody td {
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #e9ecef;
+}
+
+#machinesTable tbody tr:hover {
+    background: rgba(58, 143, 183, 0.05);
+}
+
+/* Workshop badge */
+.workshop-badge {
+    background: #e9ecef;
+    color: var(--primary-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+    
+/* Сортировка */
+table.dataTable thead .sorting:after,
+table.dataTable thead .sorting_asc:after,
+table.dataTable thead .sorting_desc:after {
+    color: rgba(255,255,255,0.6);
+}
+
+/* Кольцо загрузки */
+.load-ring {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: conic-gradient(var(--primary-color) 0deg, #e9ecef 0deg);
+    margin-right: 10px;
+}
+
+.load-ring span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.7rem;
+    font-weight: 600;
+}

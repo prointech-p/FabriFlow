@@ -1,0 +1,956 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block title %}Этапы обработки | Крон{% endblock %}
+
+{% block extra_css %}
+<style>
+    
+    /* Стили для этапов */
+    .stage-badge {
+        padding: 0.4rem 0.6rem;
+        font-weight: 500;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .stage-order {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 24px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-right: 8px;
+    }
+    
+    .stage-info {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .stage-name {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .stage-detail {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    /* Карточка станка */
+    .machine-badge {
+        background: #e9ecef;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .machine-badge i {
+        color: var(--primary-color);
+    }
+    
+    /* Индикатор времени */
+    .duration-badge {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        background: #e9ecef;
+    }
+    
+    .duration-badge i {
+        margin-right: 4px;
+    }
+    
+    /* Таблица */
+    #stagesTable {
+        margin-top: 1rem;
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+    
+    #stagesTable thead th {
+        background: var(--primary-color);
+        color: white;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 1rem 0.75rem;
+        border-bottom: none;
+    }
+    
+    #stagesTable thead th:first-child {
+        border-top-left-radius: 8px;
+    }
+    
+    #stagesTable thead th:last-child {
+        border-top-right-radius: 8px;
+    }
+    
+    #stagesTable tbody td {
+        padding: 1rem 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    #stagesTable tbody tr:hover {
+        background: rgba(58, 143, 183, 0.05);
+    }
+    
+    #stagesTable tbody tr.overdue {
+        background: rgba(220, 53, 69, 0.05);
+    }
+    
+    #stagesTable tbody tr.overdue:hover {
+        background: rgba(220, 53, 69, 0.1);
+    }
+    
+    /* Метрики */
+
+    
+    /* Timeline для последних этапов */
+    .recent-timeline {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .recent-timeline li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .recent-timeline li:last-child {
+        border-bottom: none;
+    }
+    
+    .timeline-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #28a745;
+    }
+    
+    .timeline-content {
+        flex: 1;
+    }
+    
+    .timeline-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .timeline-time {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block filters %}
+<div class="filters-sidebar">
+    <h5>
+        <i class="bi bi-funnel"></i>
+        Фильтры этапов
+    </h5>
+    
+    <div class="mb-4">
+        <label class="form-label fw-semibold">Статус этапа</label>
+        <div class="btn-group-vertical w-100" role="group">
+            <button type="button" class="btn btn-outline-primary text-start filter-status" data-status="all">
+                <i class="bi bi-grid-3x3-gap-fill me-2"></i>Все этапы
+            </button>
+            <button type="button" class="btn btn-outline-success text-start filter-status" data-status="completed">
+                <i class="bi bi-check-circle-fill me-2"></i>Выполненные
+            </button>
+            <button type="button" class="btn btn-outline-warning text-start filter-status" data-status="in_progress">
+                <i class="bi bi-gear-fill me-2"></i>В работе
+            </button>
+            <button type="button" class="btn btn-outline-secondary text-start filter-status" data-status="pending">
+                <i class="bi bi-clock me-2"></i>Ожидание
+            </button>
+            <button type="button" class="btn btn-outline-danger text-start filter-status" data-status="overdue">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>Просроченные
+            </button>
+        </div>
+    </div>
+    
+    <div class="mb-4">
+        <label class="form-label fw-semibold">Тип этапа</label>
+        <select class="form-select filter-stage-type" id="stageTypeFilter">
+            <option value="">Все типы</option>
+            {% for type in stage_types %}
+            <option value="{{ type.name }}">{{ type.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="mb-4">
+        <label class="form-label fw-semibold">Станок</label>
+        <select class="form-select filter-machine" id="machineFilter">
+            <option value="">Все станки</option>
+            {% for machine in machines %}
+            <option value="{{ machine.inventory_number }}">{{ machine.inventory_number }} ({{ machine.model.name }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="mb-4">
+        <label class="form-label fw-semibold">Период</label>
+        <select class="form-select filter-period" id="periodFilter">
+            <option value="">За всё время</option>
+            <option value="today">Сегодня</option>
+            <option value="week">Последняя неделя</option>
+            <option value="month">Последний месяц</option>
+            <option value="quarter">Последний квартал</option>
+        </select>
+    </div>
+    
+    <div class="d-grid gap-2 mt-4">
+        <button class="btn btn-primary" id="applyFilters">
+            <i class="bi bi-search me-2"></i>Применить фильтры
+        </button>
+        <button class="btn btn-outline-secondary" id="resetFilters">
+            <i class="bi bi-arrow-counterclockwise me-2"></i>Сбросить все
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-diagram-3 me-2" style="color: var(--primary-color);"></i>
+            Этапы обработки
+        </h2>
+        <p class="text-muted mb-0">Мониторинг технологических операций</p>
+    </div>
+    
+    <div class="btn-group">
+        <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-download me-1"></i>Экспорт
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#" id="exportExcel"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
+            <li><a class="dropdown-item" href="#" id="exportCSV"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>CSV</a></li>
+            <li><a class="dropdown-item" href="#" id="exportPDF"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
+        </ul>
+        <a href="#" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Новый этап
+        </a>
+    </div>
+</div>
+
+<!-- Метрики -->
+<div class="row metrics-row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="metric-card primary">
+            <div class="metric-value">{{ total_stages }}</div>
+            <div class="metric-label">Всего этапов</div>
+            <i class="bi bi-diagram-3 metric-icon"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card success">
+            <div class="metric-value">{{ completed_stages }}</div>
+            <div class="metric-label">Выполнено</div>
+            <div class="metric-trend">{{ completed_stages|floatformat:0 }}% от общего числа</div>
+            <i class="bi bi-check-circle-fill metric-icon"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card warning">
+            <div class="metric-value">{{ in_progress_stages }}</div>
+            <div class="metric-label">В работе</div>
+            <i class="bi bi-gear-fill metric-icon"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-card danger">
+            <div class="metric-value">{{ overdue_stages }}</div>
+            <div class="metric-label">Просрочено</div>
+            <i class="bi bi-exclamation-triangle-fill metric-icon"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Дополнительные метрики -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="metric-card info">
+            <div class="metric-value">{{ pending_stages }}</div>
+            <div class="metric-label">Ожидают назначения</div>
+            <i class="bi bi-clock-history metric-icon"></i>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric-card" style="background: linear-gradient(135deg, #6f42c1 0%, #8a63d2 100%); color: white;">
+            <div class="metric-value">{{ avg_duration }} ч</div>
+            <div class="metric-label">Среднее время выполнения</div>
+            <i class="bi bi-hourglass-split metric-icon"></i>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric-card" style="background: linear-gradient(135deg, #fd7e14 0%, #ff9f4a 100%); color: white;">
+            <div class="metric-value">{{ stage_types.count }}</div>
+            <div class="metric-label">Типов операций</div>
+            <i class="bi bi-grid-3x3-gap-fill metric-icon"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Основная таблица этапов -->
+<div class="content-card">
+    <div class="table-responsive">
+        <table id="stagesTable" class="table" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Деталь</th>
+                    <th>Этап</th>
+                    <th>Тип операции</th>
+                    <th>Станок</th>
+                    <th>Статус</th>
+                    <th>Начало</th>
+                    <th>Завершение</th>
+                    <th>Длительность</th>
+                    <th>Примечания</th>
+                    <th style="width: 80px;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stage in stages %}
+                <tr class="{% if stage.is_overdue %}overdue{% endif %}">
+                    <td>
+                        <div class="stage-info">
+                            <span class="stage-name">{{ stage.detail.article }}</span>
+                            <span class="stage-detail">{{ stage.detail.name|truncatechars:30 }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <span class="stage-order">{{ stage.order_num }}</span>
+                            <div>
+                                <span class="fw-medium">{{ stage.stage_type.name }}</span>
+                                {% if stage.notes %}
+                                <i class="bi bi-info-circle-fill text-muted ms-1" 
+                                   data-bs-toggle="tooltip" 
+                                   title="{{ stage.notes }}"></i>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark">{{ stage.stage_type.name }}</span>
+                    </td>
+                    <td>
+                        {% if stage.machine %}
+                        <div class="machine-badge">
+                            <i class="bi bi-cpu"></i>
+                            {{ stage.machine.inventory_number }}
+                            <small class="text-muted">({{ stage.machine.workshop.code|default:stage.machine.workshop.name }})</small>
+                        </div>
+                        {% else %}
+                        <span class="text-muted">
+                            <i class="bi bi-dash-circle"></i> Не назначен
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stage.is_completed %}
+                        <span class="badge bg-success stage-badge">
+                            <i class="bi bi-check-circle-fill"></i> Выполнен
+                        </span>
+                        {% elif stage.is_in_progress %}
+                        <span class="badge bg-warning stage-badge">
+                            <i class="bi bi-gear-fill"></i> В работе
+                        </span>
+                        {% elif stage.is_overdue %}
+                        <span class="badge bg-danger stage-badge">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Просрочен
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary stage-badge">
+                            <i class="bi bi-clock"></i> Ожидание
+                        </span>
+                        {% endif %} 
+                    </td>
+                    <td>
+                        {% if stage.related_assignment and stage.related_assignment.actual_start %}
+                            {{ stage.related_assignment.actual_start|date:"d.m.Y H:i" }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stage.is_completed and stage.completion_date %}
+                            {{ stage.completion_date|date:"d.m.Y H:i" }}
+                        {% elif stage.related_assignment and stage.related_assignment.planned_end %}
+                            <span class="{% if stage.is_overdue %}text-danger{% endif %}">
+                                {{ stage.related_assignment.planned_end|date:"d.m.Y" }}
+                                {% if stage.is_overdue %}
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stage.duration_hours %}
+                        <span class="duration-badge">
+                            <i class="bi bi-hourglass"></i> {{ stage.duration_hours }} ч
+                        </span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stage.notes %}
+                        <span class="text-muted" data-bs-toggle="tooltip" title="{{ stage.notes }}">
+                            <i class="bi bi-chat-dots"></i>
+                        </span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="#" class="btn btn-outline-primary" title="Просмотр">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="#" class="btn btn-outline-secondary" title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-outline-success" title="Отметить выполнение"
+                                    onclick="markComplete({{ stage.id }})"
+                                    {% if stage.is_completed %}disabled{% endif %}>
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" title="Назначить станок"
+                                    onclick="assignMachine({{ stage.id }})"
+                                    {% if stage.machine %}disabled{% endif %}>
+                                <i class="bi bi-cpu"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Блок с последними выполненными этапами -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="content-card">
+            <h5 class="mb-3">
+                <i class="bi bi-clock-history me-2" style="color: var(--primary-color);"></i>
+                Последние выполненные этапы
+            </h5>
+            <ul class="recent-timeline">
+                {% for stage in recent_completed %}
+                <li>
+                    <span class="timeline-dot"></span>
+                    <div class="timeline-content">
+                        <div class="timeline-title">
+                            {{ stage.detail.article }} - {{ stage.stage_type.name }}
+                        </div>
+                        <div class="timeline-time">
+                            <i class="bi bi-calendar"></i> {{ stage.completion_date|date:"d.m.Y H:i" }}
+                            <i class="bi bi-cpu ms-2"></i> {{ stage.machine.inventory_number|default:"не указан" }}
+                        </div>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="text-muted text-center py-3">Нет выполненных этапов</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="content-card">
+            <h5 class="mb-3">
+                <i class="bi bi-bar-chart me-2" style="color: var(--primary-color);"></i>
+                Статистика по типам операций
+            </h5>
+            <canvas id="stagesChart" height="200"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для отметки выполнения -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Отметка выполнения этапа
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Подтвердите выполнение этапа для детали <strong id="completeDetail"></strong></p>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Дата выполнения будет установлена на текущую
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-1"></i>Отмена
+                </button>
+                <form method="post" action="#" id="completeForm">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle me-1"></i>Подтвердить выполнение
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для назначения станка -->
+<div class="modal fade" id="assignMachineModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="bi bi-cpu me-2"></i>
+                    Назначение станка
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="assignMachineForm">
+                    <div class="mb-3">
+                        <label class="form-label">Выберите станок</label>
+                        <select class="form-select" name="machine" id="machineSelect">
+                            <option value="">-- Выберите станок --</option>
+                            {% for machine in machines %}
+                            <option value="{{ machine.id }}">
+                                {{ machine.inventory_number }} - {{ machine.model.name }} ({{ machine.workshop.name }})
+                                [Загрузка: {{ machine.load_percent }}%]
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Плановое начало</label>
+                        <input type="datetime-local" class="form-control" name="planned_start" id="plannedStart">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Плановое завершение</label>
+                        <input type="datetime-local" class="form-control" name="planned_end" id="plannedEnd">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-1"></i>Отмена
+                </button>
+                <button type="button" class="btn btn-warning" id="saveMachineAssignment">
+                    <i class="bi bi-check-circle me-1"></i>Назначить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Инициализация DataTables
+    var table = $('#stagesTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/ru.json',
+            search: "Поиск:",
+            lengthMenu: "Показать _MENU_ записей",
+            info: "Показано с _START_ по _END_ из _TOTAL_ записей",
+            infoEmpty: "Показано с 0 по 0 из 0 записей",
+            infoFiltered: "(отфильтровано из _MAX_ записей)",
+            loadingRecords: "Загрузка...",
+            zeroRecords: "Записи отсутствуют",
+            emptyTable: "В таблице отсутствуют данные",
+            paginate: {
+                first: "Первая",
+                previous: "<",
+                next: ">",
+                last: "Последняя"
+            }
+        },
+        order: [[5, 'desc']], // Сортировка по дате начала
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Все"]],
+        responsive: true,
+        columnDefs: [
+            { targets: [9], orderable: false },
+            { targets: [8], orderable: false }
+        ],
+        initComplete: function() {
+            $('.dataTables_length select').addClass('form-select form-select-sm');
+            $('.dataTables_filter input').addClass('form-control form-control-sm');
+        }
+    });
+    
+    // Инициализация графика
+    var ctx = document.getElementById('stagesChart').getContext('2d');
+    var stagesChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Выполнено', 'В работе', 'Ожидание', 'Просрочено'],
+            datasets: [{
+                data: [
+                    {{ completed_stages }},
+                    {{ in_progress_stages }},
+                    {{ pending_stages }},
+                    {{ overdue_stages }}
+                ],
+                backgroundColor: ['#28a745', '#ffc107', '#6c757d', '#dc3545'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+    
+    // Применение фильтров
+    $('#applyFilters').on('click', function() {
+        var status = $('.filter-status.active').data('status');
+        var stageType = $('#stageTypeFilter').val();
+        var machine = $('#machineFilter').val();
+        var period = $('#periodFilter').val();
+        
+        table.columns().search('');
+        
+        if (status && status !== 'all') {
+            var statusText = '';
+            if (status === 'completed') statusText = 'Выполнен';
+            else if (status === 'in_progress') statusText = 'В работе';
+            else if (status === 'pending') statusText = 'Ожидание';
+            else if (status === 'overdue') statusText = 'Просрочен';
+            
+            if (statusText) {
+                table.column(4).search(statusText).draw();
+            }
+        }
+        
+        if (stageType) {
+            table.column(2).search(stageType).draw();
+        }
+        
+        if (machine) {
+            table.column(3).search(machine).draw();
+        }
+    });
+    
+    // Сброс фильтров
+    $('#resetFilters').on('click', function() {
+        $('.filter-status').removeClass('active btn-primary').addClass('btn-outline-primary');
+        $('#stageTypeFilter, #machineFilter, #periodFilter').val('');
+        table.search('').columns().search('').draw();
+    });
+    
+    // Обработчики для кнопок статусов
+    $('.filter-status').on('click', function() {
+        $('.filter-status').removeClass('active btn-primary').addClass('btn-outline-primary');
+        $(this).removeClass('btn-outline-primary').addClass('active btn-primary');
+    });
+    
+    // Инициализация tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Функция для отметки выполнения
+function markComplete(stageId) {
+    var row = $('#stagesTable').DataTable().row($(event.target).closest('tr')).data();
+    var detailInfo = row[0]; // Информация о детали
+    
+    $('#completeDetail').text(detailInfo);
+    $('#completeForm').attr('action', '/stages/' + stageId + '/complete/');
+    
+    var modal = new bootstrap.Modal(document.getElementById('completeModal'));
+    modal.show();
+}
+
+// Функция для назначения станка
+function assignMachine(stageId) {
+    $('#assignMachineForm').data('stage-id', stageId);
+    
+    // Установка плановых дат по умолчанию
+    var now = new Date();
+    var tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Форматирование даты для input type="datetime-local"
+    var nowStr = now.toISOString().slice(0, 16);
+    var tomorrowStr = tomorrow.toISOString().slice(0, 16);
+    
+    $('#plannedStart').val(nowStr);
+    $('#plannedEnd').val(tomorrowStr);
+    
+    var modal = new bootstrap.Modal(document.getElementById('assignMachineModal'));
+    modal.show();
+}
+
+// Сохранение назначения станка
+$('#saveMachineAssignment').on('click', function() {
+    var stageId = $('#assignMachineForm').data('stage-id');
+    var machineId = $('#machineSelect').val();
+    var plannedStart = $('#plannedStart').val();
+    var plannedEnd = $('#plannedEnd').val();
+    
+    if (!machineId) {
+        alert('Пожалуйста, выберите станок');
+        return;
+    }
+    
+    if (!plannedStart || !plannedEnd) {
+        alert('Пожалуйста, укажите плановые даты');
+        return;
+    }
+    
+    // Отправка данных на сервер
+    $.ajax({
+        url: '/stages/' + stageId + '/assign-machine/',
+        method: 'POST',
+        data: {
+            machine_id: machineId,
+            planned_start: plannedStart,
+            planned_end: plannedEnd,
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+            if (response.success) {
+                $('#assignMachineModal').modal('hide');
+                location.reload(); // Обновляем страницу для отображения изменений
+            } else {
+                alert('Ошибка при назначении станка: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            alert('Произошла ошибка при отправке запроса');
+        }
+    });
+});
+
+// Функция для обновления статуса в реальном времени
+function updateStagesStatus() {
+    $.get('/api/stages/status/', function(data) {
+        // Обновляем метрики
+        $('.metric-card .metric-value').each(function(index, element) {
+            var metricType = $(element).closest('.metric-card').find('.metric-label').text().trim();
+            if (metricType === 'Всего этапов') {
+                $(element).text(data.total);
+            } else if (metricType === 'Выполнено') {
+                $(element).text(data.completed);
+            } else if (metricType === 'В работе') {
+                $(element).text(data.in_progress);
+            } else if (metricType === 'Просрочено') {
+                $(element).text(data.overdue);
+            } else if (metricType === 'Ожидают назначения') {
+                $(element).text(data.pending);
+            }
+        });
+        
+        // Обновляем график
+        if (window.stagesChart) {
+            window.stagesChart.data.datasets[0].data = [
+                data.completed,
+                data.in_progress,
+                data.pending,
+                data.overdue
+            ];
+            window.stagesChart.update();
+        }
+    });
+}
+
+// Обновление каждые 30 секунд
+setInterval(updateStagesStatus, 30000);
+
+// Экспорт в Excel
+$('#exportExcel').on('click', function(e) {
+    e.preventDefault();
+    
+    // Получаем данные таблицы
+    var tableData = [];
+    $('#stagesTable tbody tr').each(function() {
+        var row = [];
+        $(this).find('td').each(function() {
+            row.push($(this).text().trim());
+        });
+        tableData.push(row);
+    });
+    
+    // Заголовки
+    var headers = [
+        'Деталь',
+        'Этап',
+        'Тип операции',
+        'Станок',
+        'Статус',
+        'Начало',
+        'Завершение',
+        'Длительность',
+        'Примечания'
+    ];
+    
+    // Создаем CSV
+    var csv = headers.join(';') + '\n';
+    tableData.forEach(function(row) {
+        csv += row.join(';') + '\n';
+    });
+    
+    // Скачиваем файл
+    var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'etapy_' + new Date().toISOString().slice(0,10) + '.csv';
+    link.click();
+});
+
+// Экспорт в PDF (заглушка)
+$('#exportPDF').on('click', function(e) {
+    e.preventDefault();
+    alert('Функция экспорта в PDF находится в разработке');
+});
+
+// Инициализация при загрузке страницы
+$(document).ready(function() {
+    // Сохраняем ссылку на график для обновления
+    window.stagesChart = stagesChart;
+    
+    // Устанавливаем минимальные даты для полей выбора
+    var now = new Date();
+    var minDateTime = now.toISOString().slice(0, 16);
+    $('#plannedStart').attr('min', minDateTime);
+    $('#plannedEnd').attr('min', minDateTime);
+    
+    // Автоматическое обновление планового завершения при изменении начала
+    $('#plannedStart').on('change', function() {
+        var startDate = new Date($(this).val());
+        if (startDate) {
+            var endDate = new Date(startDate);
+            endDate.setHours(endDate.getHours() + 8); // +8 часов по умолчанию
+            $('#plannedEnd').val(endDate.toISOString().slice(0, 16));
+        }
+    });
+    
+    // Подтверждение перед удалением
+    $('.btn-outline-danger').on('click', function(e) {
+        if (!confirm('Вы уверены, что хотите удалить этот этап?')) {
+            e.preventDefault();
+        }
+    });
+    
+    // Подсветка строк при наведении
+    $('#stagesTable tbody tr').hover(
+        function() { $(this).addClass('table-active'); },
+        function() { $(this).removeClass('table-active'); }
+    );
+});
+
+// Обработка клавиатурных сокращений
+$(document).on('keydown', function(e) {
+    // Ctrl+F - фокус на поиск
+    if (e.ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        $('.dataTables_filter input').focus();
+    }
+    
+    // Esc - закрыть модальные окна
+    if (e.key === 'Escape') {
+        $('.modal').modal('hide');
+    }
+    
+    // Ctrl+R - обновить данные
+    if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        updateStagesStatus();
+    }
+});
+
+// Функция для форматирования длительности
+function formatDuration(minutes) {
+    if (minutes < 60) {
+        return minutes + ' мин';
+    }
+    var hours = Math.floor(minutes / 60);
+    var mins = minutes % 60;
+    return hours + ' ч ' + (mins > 0 ? mins + ' мин' : '');
+}
+
+// Функция для получения цвета статуса
+function getStatusColor(status) {
+    switch(status) {
+        case 'Выполнен': return '#28a745';
+        case 'В работе': return '#ffc107';
+        case 'Просрочен': return '#dc3545';
+        default: return '#6c757d';
+    }
+}
+
+// Функция для обновления статуса этапа через AJAX
+function updateStageStatus(stageId, completed) {
+    $.ajax({
+        url: '/stages/' + stageId + '/update-status/',
+        method: 'POST',
+        data: {
+            completed: completed,
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        },
+        success: function(response) {
+            if (response.success) {
+                // Обновляем строку в таблице
+                var row = $('#stagesTable').DataTable().row(function(idx, data, node) {
+                    return data[0].includes(stageId); // Поиск по ID
+                });
+                
+                if (row.length) {
+                    var rowNode = row.node();
+                    if (completed) {
+                        rowNode.find('td').eq(4).html('<span class="badge bg-success stage-badge"><i class="bi bi-check-circle-fill"></i> Выполнен</span>');
+                        rowNode.find('td').eq(6).text(new Date().toLocaleString());
+                    } else {
+                        rowNode.find('td').eq(4).html('<span class="badge bg-secondary stage-badge"><i class="bi bi-clock"></i> Ожидание</span>');
+                        rowNode.find('td').eq(6).text('-');
+                    }
+                }
+                
+                // Обновляем метрики
+                updateStagesStatus();
+            }
+        }
+    });
+}
+
+{% endblock extra_js %}

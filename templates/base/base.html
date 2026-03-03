@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="ru">
 
 <head>
@@ -26,130 +27,10 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap5.min.css">
         
+    <!-- Дополнительные стили -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+
     <style>
-        :root {
-            --primary-color: #0b3b5c;
-            --secondary-color: #1e5f7a;
-            --accent-color: #3a8fb7;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --light-bg: #f4f7fc;
-            --dark-text: #2c3e50;
-            --border-color: #dee2e6;
-            --header-bg: #0a3147;
-        }
-        
-        * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-        
-        body {
-            background-color: var(--light-bg);
-            color: var(--dark-text);
-            padding-top: 70px; /* высота фиксированного хедера */
-            min-height: 100vh;
-            position: relative;
-            padding-bottom: 60px; /* высота футера */
-        }
-        
-        /* Хедер */
-        .navbar-custom {
-            background: linear-gradient(135deg, var(--header-bg) 0%, var(--primary-color) 100%);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            padding: 0.75rem 1rem;
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1030;
-            border-bottom: 3px solid var(--accent-color);
-        }
-        
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-            color: white !important;
-            letter-spacing: 0.5px;
-            padding: 0.5rem 0;
-        }
-        
-        .navbar-brand small {
-            font-size: 0.9rem;
-            font-weight: 400;
-            opacity: 0.8;
-            display: block;
-            margin-top: 2px;
-        }
-        
-        .nav-link {
-            color: rgba(255, 255, 255, 0.85) !important;
-            font-weight: 500;
-            padding: 0.75rem 1.25rem !important;
-            transition: all 0.2s;
-            border-radius: 6px;
-            margin: 0 2px;
-        }
-        
-        .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: white !important;
-            transform: translateY(-1px);
-        }
-        
-        .nav-link.active {
-            background-color: var(--accent-color);
-            color: white !important;
-        }
-        
-        .nav-link i {
-            margin-right: 8px;
-            font-size: 1.1rem;
-        }
-        
-        /* Профиль пользователя */
-        .user-menu {
-            display: flex;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 30px;
-            padding: 0.25rem 1rem 0.25rem 0.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .user-avatar {
-            width: 35px;
-            height: 35px;
-            background: var(--accent-color);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            color: white;
-        }
-        
-        .user-info {
-            line-height: 1.3;
-        }
-        
-        .user-name {
-            color: white;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        .user-role {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.7rem;
-        }
-        
-        /* Контент */
-        .main-content {
-            padding: 2rem;
-            min-height: calc(100vh - 130px);
-        }
         
         /* Сайдбар для фильтров */
         .filters-sidebar {
@@ -203,26 +84,6 @@
         }
         
         /* Индикаторы и метрики */
-        .metric-card {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 15px rgba(11, 59, 92, 0.2);
-        }
-        
-        .metric-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            line-height: 1.2;
-        }
-        
-        .metric-label {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
         
         /* Прогресс бары */
         .progress-custom {
@@ -449,6 +310,9 @@
     <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
     
     <!-- Общие скрипты -->
+     <script>
+        window.CSRF_TOKEN = '{{ csrf_token }}';
+    </script>
     <script>
         // Автоматическое скрытие сообщений через 5 секунд
         document.addEventListener('DOMContentLoaded', function() {

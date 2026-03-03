@@ -1,30 +1,224 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 
-from django.views.decorators.http import require_GET
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q, Count, F, Value, IntegerField, Case, When, Avg
+from django.db.models import Q, Count, F, Value, IntegerField, Case, When, Avg, DurationField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
 
 from datetime import datetime, timedelta
 
 from .models import (
-    Detail, Status, Stage, Workshop, Machine
+    Detail, 
+    Status, 
+    Stage, 
+    StageType,
+    Workshop, 
+    MachineModel,
+    Machine,
+    MachineAssignment
 )
 
 
-
-
 def dashboard(request):
-
-    return render(
-
-        request,
-
-        "dashboard/dashboard.html"
-
-    )
+    """
+    View для отображения дашборда с графиками и сводной информацией.
+    """
+    now = timezone.now()
+    today = now.date()
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+    
+    # ==================== СТАТИСТИКА ПО ДЕТАЛЯМ ====================
+    details_stats = {
+        'total': Detail.objects.filter(is_deleted=False).count(),
+        'completed': Detail.objects.filter(
+            is_deleted=False,
+            status__name__icontains='готов'
+        ).count(),
+        'in_progress': Detail.objects.filter(
+            is_deleted=False,
+            status__name__icontains='работе'
+        ).count(),
+        'overdue': Detail.objects.filter(
+            is_deleted=False,
+            planned_completion_date__lt=now,
+            completion_percent__lt=100
+        ).exclude(
+            status__name__icontains='готов'
+        ).count(),
+    }
+    
+    # Средний процент готовности
+    avg_completion = Detail.objects.filter(
+        is_deleted=False
+    ).aggregate(avg=Avg('completion_percent'))['avg'] or 0
+    details_stats['avg_completion'] = round(avg_completion, 1)
+    
+    # ==================== СТАТИСТИКА ПО СТАНКАМ ====================
+    # ИСПРАВЛЕНО: правильное использование Q объектов
+    machines_stats = {
+        'total': Machine.objects.filter(is_deleted=False).count(),
+        'active': Machine.objects.filter(
+            is_deleted=False,
+            status__name__icontains='работа'
+        ).count(),
+        'idle': Machine.objects.filter(
+            is_deleted=False,
+            status__name__icontains='ожида'
+        ).count(),
+        'maintenance': Machine.objects.filter(
+            is_deleted=False
+        ).filter(
+            Q(status__name__icontains='ремонт') | 
+            Q(status__name__icontains='неисправ')
+        ).count(),
+    }
+    
+    # Средняя загрузка станков
+    avg_load = Machine.objects.filter(
+        is_deleted=False
+    ).aggregate(avg=Avg('load_percent'))['avg'] or 0
+    machines_stats['avg_load'] = round(avg_load, 1)
+    
+    # Станки с высокой загрузкой (>80%)
+    machines_stats['high_load'] = Machine.objects.filter(
+        is_deleted=False,
+        load_percent__gt=80
+    ).count()
+    
+    # ==================== СТАТИСТИКА ПО ЭТАПАМ ====================
+    stages_stats = {
+        'total': Stage.objects.filter(is_deleted=False).count(),
+        'completed': Stage.objects.filter(
+            is_deleted=False,
+            is_completed=True
+        ).count(),
+        'in_progress': Stage.objects.filter(
+            is_deleted=False,
+            is_completed=False,
+            machine__isnull=False,
+            machine__assignments__actual_start__isnull=False,
+            machine__assignments__actual_end__isnull=True
+        ).distinct().count(),
+        'pending': Stage.objects.filter(
+            is_deleted=False,
+            is_completed=False,
+            machine__isnull=True
+        ).count(),
+    }
+    
+    # ==================== ГРАФИК ЗАГРУЗКИ СТАНКОВ ====================
+    # Данные для круговой диаграммы загрузки
+    machine_load_data = {
+        'high': Machine.objects.filter(is_deleted=False, load_percent__gt=80).count(),
+        'medium': Machine.objects.filter(is_deleted=False, load_percent__range=(30, 80)).count(),
+        'low': Machine.objects.filter(is_deleted=False, load_percent__lt=30).count(),
+    }
+    
+    # Данные для графика загрузки по цехам
+    workshops_load = []
+    workshops = Workshop.objects.filter(machines__is_deleted=False).distinct()
+    for workshop in workshops:
+        machines_in_workshop = workshop.machines.filter(is_deleted=False)
+        if machines_in_workshop.exists():
+            avg_workshop_load = machines_in_workshop.aggregate(avg=Avg('load_percent'))['avg'] or 0
+            workshops_load.append({
+                'name': workshop.name,
+                'load': round(avg_workshop_load, 1),
+                'total': machines_in_workshop.count(),
+                'active': machines_in_workshop.filter(status__name__icontains='работа').count()
+            })
+    
+    # ==================== ГРАФИК ВЫПОЛНЕНИЯ ЭТАПОВ ПО ДНЯМ ====================
+    # Последние 7 дней
+    last_7_days = []
+    completed_by_day = []
+    
+    for i in range(6, -1, -1):
+        day = now - timedelta(days=i)
+        day_start = datetime(day.year, day.month, day.day, tzinfo=now.tzinfo)
+        day_end = day_start + timedelta(days=1)
+        
+        completed_count = Stage.objects.filter(
+            is_deleted=False,
+            is_completed=True,
+            completion_date__range=(day_start, day_end)
+        ).count()
+        
+        last_7_days.append(day.strftime('%d.%m'))
+        completed_by_day.append(completed_count)
+    
+    # ==================== ТОП-5 САМЫХ ЗАГРУЖЕННЫХ СТАНКОВ ====================
+    top_loaded_machines = Machine.objects.filter(
+        is_deleted=False
+    ).select_related('model', 'workshop').order_by('-load_percent')[:5]
+    
+    # ==================== ПОСЛЕДНИЕ 10 ДЕТАЛЕЙ ====================
+    recent_details = Detail.objects.filter(
+        is_deleted=False
+    ).select_related('status').order_by('-created_at')[:10]
+    
+    # ==================== СВОДНАЯ ТАБЛИЦА ДЕТАЛЕЙ С ПРОЦЕНТОМ ГОТОВНОСТИ ====================
+    # Детали, отсортированные по проценту готовности (для таблицы)
+    details_table = Detail.objects.filter(
+        is_deleted=False
+    ).select_related('status').prefetch_related(
+        'stages'
+    ).annotate(
+        total_stages=Count('stages', filter=Q(stages__is_deleted=False)),
+        completed_stages=Count('stages', filter=Q(stages__is_completed=True, stages__is_deleted=False))
+    ).order_by('-completion_percent', 'planned_completion_date')[:15]
+    
+    # Добавляем информацию о текущем этапе для каждой детали
+    for detail in details_table:
+        detail.current_stage = detail.stages.filter(
+            is_completed=False
+        ).order_by('order_num').select_related('stage_type', 'machine').first()
+    
+    # ==================== СТАТУСЫ ПО ЦЕХАМ ====================
+    workshop_status = []
+    for workshop in workshops[:6]:  # Ограничим до 6 цехов для графика
+        machines = workshop.machines.filter(is_deleted=False)
+        workshop_status.append({
+            'workshop': workshop.name,
+            'active': machines.filter(status__name__icontains='работа').count(),
+            'idle': machines.filter(status__name__icontains='ожида').count(),
+            'maintenance': machines.filter(
+                Q(status__name__icontains='ремонт') | 
+                Q(status__name__icontains='неисправ')
+            ).count(),
+        })
+    
+    # ==================== ДЕТАЛИ С ВЫСОКИМ РИСКОМ ПРОСРОЧКИ ====================
+    at_risk_details = Detail.objects.filter(
+        is_deleted=False,
+        planned_completion_date__lt=now + timedelta(days=3),
+        planned_completion_date__gte=now,
+        completion_percent__lt=70
+    ).exclude(
+        status__name__icontains='готов'
+    ).select_related('status')[:5]
+    
+    context = {
+        'now': now,
+        'details_stats': details_stats,
+        'machines_stats': machines_stats,
+        'stages_stats': stages_stats,
+        'machine_load_data': machine_load_data,
+        'workshops_load': workshops_load,
+        'last_7_days': last_7_days,
+        'completed_by_day': completed_by_day,
+        'top_loaded_machines': top_loaded_machines,
+        'recent_details': recent_details,
+        'details_table': details_table,
+        'workshop_status': workshop_status,
+        'at_risk_details': at_risk_details,
+    }
+    
+    return render(request, 'dashboard/dashboard.html', context)
 
 
 
@@ -119,12 +313,6 @@ def detail_card(request,id):
 
     )
 
-
-from django.shortcuts import render
-from django.db.models import Count, Q, Avg
-from django.utils import timezone
-from datetime import timedelta
-from .models import Machine, MachineAssignment, Workshop, Status, MachineModel
 
 def machine_list(request):
     """
@@ -289,3 +477,281 @@ def machines_load(request):
     } for m in machines]
     
     return JsonResponse(data, safe=False)
+
+
+
+def stage_list(request):
+    """
+    View для отображения списка этапов обработки.
+    """
+    # Базовый queryset с оптимизацией запросов
+    stages = Stage.objects.select_related(
+        'detail',
+        'stage_type',
+        'machine',
+        'machine__workshop',
+        'machine__model'
+    ).filter(is_deleted=False).order_by('detail', 'order_num')
+    
+    # Аннотируем дополнительную информацию
+    now = timezone.now()
+
+    # Получаем все назначения для станков
+    assignments = MachineAssignment.objects.filter(
+        is_deleted=False
+    ).select_related('detail', 'machine')
+    
+    # Создаем словарь для быстрого доступа к назначениям по этапам
+    # Ключ: (machine_id, detail_id), значение: назначение
+    assignments_dict = {}
+    for assignment in assignments:
+        key = (assignment.machine_id, assignment.detail_id)
+        if key not in assignments_dict:  # Берем первое назначение
+            assignments_dict[key] = assignment
+    
+    # Добавляем вычисляемые поля
+    for stage in stages:
+        # Проверка на просрочку
+        if not stage.is_completed and stage.machine:
+            # Ищем назначение для этого этапа
+            assignment = stage.machine.assignments.filter(
+                detail=stage.detail,
+                actual_end__isnull=True
+            ).first()
+            
+            if assignment and assignment.planned_end < now:
+                stage.is_overdue = True
+            else:
+                stage.is_overdue = False
+        else:
+            stage.is_overdue = False
+
+        # Добавляем проверку на статус "В работе"
+        if not stage.is_completed and stage.machine:
+            stage.is_in_progress = stage.machine.assignments.filter(
+                actual_start__isnull=False,
+                actual_end__isnull=True,
+                detail=stage.detail
+            ).exists()
+        else:
+            stage.is_in_progress = False
+        
+        # Длительность выполнения
+        if stage.completion_date and stage.created_at:
+            duration = stage.completion_date - stage.created_at
+            stage.duration_hours = round(duration.total_seconds() / 3600, 1)
+
+        # Добавляем назначение к каждому этапу
+        for stage in stages:
+            key = (stage.machine_id, stage.detail_id)
+            stage.related_assignment = assignments_dict.get(key)
+
+    
+    # Статистика для метрик
+    total_stages = stages.count()
+    completed_stages = stages.filter(is_completed=True).count()
+    in_progress_stages = stages.filter(
+        is_completed=False,
+        machine__isnull=False,
+        machine__assignments__actual_start__isnull=False,
+        machine__assignments__actual_end__isnull=True
+    ).distinct().count()
+    pending_stages = stages.filter(
+        is_completed=False,
+        machine__isnull=True
+    ).count()
+    
+    # Просроченные этапы
+    overdue_stages = 0
+    for stage in stages:
+        if stage.is_overdue:
+            overdue_stages += 1
+    
+    # Среднее время выполнения этапа   
+    avg_duration = stages.filter(
+        is_completed=True,
+        completion_date__isnull=False
+    ).annotate(
+        duration=ExpressionWrapper(
+            F('completion_date') - F('created_at'),
+            output_field=DurationField()
+        )
+    ).aggregate(avg=Avg('duration'))['avg']
+    
+    if avg_duration:
+        avg_hours = round(avg_duration.total_seconds() / 3600, 1)
+    else:
+        avg_hours = 0
+    
+    # Получаем справочники для фильтров
+    stage_types = StageType.objects.filter(
+        stages__isnull=False
+    ).distinct().order_by('name')
+    
+    machines = Machine.objects.filter(
+        stages__isnull=False,
+        is_deleted=False
+    ).distinct().order_by('inventory_number')
+    
+    statuses = Status.objects.all()  # Для фильтра по статусу детали
+    
+    # Последние выполненные этапы
+    recent_completed = stages.filter(
+        is_completed=True,
+        completion_date__isnull=False
+    ).order_by('-completion_date')[:5]
+    
+    context = {
+        'stages': stages,
+        'total_stages': total_stages,
+        'completed_stages': completed_stages,
+        'in_progress_stages': in_progress_stages,
+        'pending_stages': pending_stages,
+        'overdue_stages': overdue_stages,
+        'avg_duration': avg_hours,
+        'stage_types': stage_types,
+        'machines': machines,
+        'statuses': statuses,
+        'recent_completed': recent_completed,
+        'now': now,
+    }
+    
+    return render(request, 'stages/stage_list.html', context)
+
+
+
+
+@login_required
+def detail_detail(request, pk):
+    """
+    Возвращает данные детали в формате JSON для модального окна
+    """
+    detail = get_object_or_404(
+        Detail.objects.select_related('status').prefetch_related(
+            'stages__stage_type',
+            'stages__machine__workshop'
+        ),
+        pk=pk,
+        is_deleted=False
+    )
+    
+    # Получаем все этапы детали
+    stages = detail.stages.filter(is_deleted=False).order_by('order_num')
+    
+    # Получаем доступные станки для назначения
+    available_machines = Machine.objects.filter(
+        is_deleted=False
+    ).select_related('model', 'workshop').order_by('inventory_number')
+    
+    # Получаем статусы для возможности смены статуса детали
+    statuses = Status.objects.filter(
+        Q(details__isnull=False) | Q(machines__isnull=False)
+    ).distinct().order_by('name')
+    
+    # Формируем данные для JSON ответа
+    data = {
+        'id': detail.id,
+        'article': detail.article,
+        'name': detail.name,
+        'drawing_number': detail.drawing_number or '',
+        'planned_completion_date': detail.planned_completion_date.strftime('%Y-%m-%d %H:%M') if detail.planned_completion_date else '',
+        'status': {
+            'id': detail.status.id,
+            'name': detail.status.name,
+        },
+        'completion_percent': float(detail.completion_percent),
+        'description': detail.description or '',
+        'created_at': detail.created_at.strftime('%d.%m.%Y %H:%M'),
+        'updated_at': detail.updated_at.strftime('%d.%m.%Y %H:%M'),
+        'stages': []
+    }
+    
+    for stage in stages:
+        stage_data = {
+            'id': stage.id,
+            'order_num': stage.order_num,
+            'stage_type': {
+                'id': stage.stage_type.id,
+                'name': stage.stage_type.name,
+            },
+            'is_completed': stage.is_completed,
+            'completion_date': stage.completion_date.strftime('%d.%m.%Y %H:%M') if stage.completion_date else None,
+            'notes': stage.notes or '',
+        }
+        
+        if stage.machine:
+            stage_data['machine'] = {
+                'id': stage.machine.id,
+                'inventory_number': stage.machine.inventory_number,
+                'model': stage.machine.model.name,
+                'workshop': stage.machine.workshop.name,
+                'load_percent': float(stage.machine.load_percent),
+            }
+        else:
+            stage_data['machine'] = None
+        
+        # Проверка на просрочку
+        if not stage.is_completed and stage.machine:
+            assignment = stage.machine.assignments.filter(
+                detail=detail,
+                actual_end__isnull=True
+            ).first()
+            stage_data['is_overdue'] = bool(assignment and assignment.planned_end < timezone.now())
+        else:
+            stage_data['is_overdue'] = False
+        
+        data['stages'].append(stage_data)
+    
+    return JsonResponse(data)
+
+
+@login_required
+@require_POST
+def detail_recalculate(request, pk):
+    """
+    Пересчитывает процент готовности детали
+    """
+    detail = get_object_or_404(Detail, pk=pk, is_deleted=False)
+    detail.recalculate_completion()
+    
+    return JsonResponse({
+        'success': True,
+        'completion_percent': float(detail.completion_percent),
+        'message': 'Процент готовности успешно пересчитан'
+    })
+
+
+@login_required
+@require_POST
+def stage_complete(request, pk, stage_id):
+    """
+    Отмечает этап как выполненный
+    """
+    stage = get_object_or_404(Stage, pk=stage_id, detail_id=pk, is_deleted=False)
+    
+    if not stage.is_completed:
+        stage.is_completed = True
+        stage.completion_date = timezone.now()
+        stage.save()
+        
+        # Пересчитываем готовность детали
+        stage.detail.recalculate_completion()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Этап отмечен как выполненный',
+            'completion_percent': float(stage.detail.completion_percent)
+        })
+    
+    return JsonResponse({
+        'success': False,
+        'message': 'Этап уже был выполнен ранее'
+    })
+
+
+@login_required
+def detail_api(request, pk):
+    """
+    API для получения данных детали (альтернативный вариант)
+    """
+    return detail_detail(request, pk)

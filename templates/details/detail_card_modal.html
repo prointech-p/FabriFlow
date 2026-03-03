@@ -1,0 +1,131 @@
+<!-- Модальное окно карточки детали -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="detailModalLabel">
+                    <i class="bi bi-box me-2"></i>
+                    Карточка детали
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Индикатор загрузки -->
+                <div id="detailModalLoader" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Загрузка данных детали...</p>
+                </div>
+                
+                <!-- Контент карточки (изначально скрыт) -->
+                <div id="detailModalContent" style="display: none;">
+                    <!-- Заголовок с основной информацией -->
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <h3 id="detailArticle" class="mb-1"></h3>
+                            <p id="detailName" class="text-muted mb-2"></p>
+                            <div class="d-flex gap-3">
+                                <span class="badge bg-light text-dark" id="detailDrawing"></span>
+                                <span class="badge" id="detailStatus"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <small class="text-muted d-block">Создано: <span id="detailCreated"></span></small>
+                            <small class="text-muted d-block">Изменено: <span id="detailUpdated"></span></small>
+                        </div>
+                    </div>
+                    
+                    <!-- Блок процента готовности -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <h6 class="card-title mb-3">
+                                                <i class="bi bi-pie-chart-fill me-2" style="color: var(--primary-color);"></i>
+                                                Процент готовности
+                                            </h6>
+                                            <div class="d-flex align-items-center gap-3">
+                                                <div class="position-relative" style="width: 80px; height: 80px;">
+                                                    <canvas id="completionChart" width="80" height="80"></canvas>
+                                                </div>
+                                                <div>
+                                                    <div class="display-4 fw-bold" id="completionPercent">0%</div>
+                                                    <div class="progress" style="width: 200px; height: 10px;">
+                                                        <div id="completionProgressBar" class="progress-bar bg-success" 
+                                                             role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="ms-auto">
+                                                    <button class="btn btn-outline-primary" id="recalculateBtn">
+                                                        <i class="bi bi-arrow-repeat me-1"></i>Пересчитать
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="border-start ps-3">
+                                                <div class="mb-2">
+                                                    <span class="text-muted">Плановая дата:</span>
+                                                    <strong class="d-block" id="plannedDate"></strong>
+                                                </div>
+                                                <div>
+                                                    <span class="text-muted">Описание:</span>
+                                                    <p class="mb-0 small" id="detailDescription"></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Таблица этапов -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card border-0">
+                                <div class="card-header bg-transparent border-0">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-diagram-3 me-2" style="color: var(--primary-color);"></i>
+                                        Технологический маршрут
+                                    </h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle" id="stagesTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>№</th>
+                                                    <th>Операция</th>
+                                                    <th>Станок</th>
+                                                    <th>Статус</th>
+                                                    <th>Дата выполнения</th>
+                                                    <th>Примечания</th>
+                                                    <th>Действия</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="stagesTableBody">
+                                                <!-- Данные будут загружены через JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-1"></i>Закрыть
+                </button>
+                <button type="button" class="btn btn-primary" id="editDetailBtn">
+                    <i class="bi bi-pencil me-1"></i>Редактировать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

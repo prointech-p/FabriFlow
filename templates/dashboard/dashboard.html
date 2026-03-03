@@ -1,94 +1,988 @@
 {% extends "base/base.html" %}
+{% load static %}
+{% load date_extras %}
 
+{% block title %}Дашборд | Крон{% endblock %}
 
-{% block title %}
-
-Дашборд
-
+{% block extra_css %}
+<style>
+    /* Стили для дашборда */
+    .dashboard-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e9ecef;
+        height: 100%;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(11, 59, 92, 0.12);
+    }
+    
+    .card-header-custom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.2rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 2px solid #f0f4f8;
+    }
+    
+    .card-header-custom h5 {
+        margin: 0;
+        font-weight: 600;
+        color: var(--primary-color);
+        font-size: 1.1rem;
+    }
+    
+    .card-header-custom i {
+        font-size: 1.5rem;
+        color: var(--accent-color);
+        opacity: 0.7;
+    }
+    
+    /* Метрики */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .kpi-item {
+        background: linear-gradient(135deg, #f8faff 0%, #f0f4fa 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .kpi-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        line-height: 1.2;
+    }
+    
+    .kpi-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .kpi-trend {
+        font-size: 0.7rem;
+        margin-top: 0.3rem;
+        color: #28a745;
+    }
+    
+    /* Прогресс-бар */
+    .progress-lg {
+        height: 10px;
+        background: #e9ecef;
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 0.5rem 0;
+    }
+    
+    .progress-bar-custom {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-color), var(--primary-color));
+        border-radius: 5px;
+    }
+    
+    /* Таблица сводки */
+    .summary-table {
+        width: 100%;
+    }
+    
+    .summary-table td {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f4f8;
+    }
+    
+    .summary-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .summary-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .summary-value {
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+    }
+    
+    /* Индикатор статуса */
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    
+    .status-success { background: #28a745; box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2); }
+    .status-warning { background: #ffc107; box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.2); }
+    .status-danger { background: #dc3545; box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2); }
+    .status-info { background: #17a2b8; box-shadow: 0 0 0 2px rgba(23, 162, 184, 0.2); }
+    .status-secondary { background: #6c757d; box-shadow: 0 0 0 2px rgba(108, 117, 125, 0.2); }
+    
+    /* Таблица деталей */
+    .detail-table {
+        font-size: 0.9rem;
+    }
+    
+    .detail-table th {
+        background: #f8f9fa;
+        color: var(--primary-color);
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.75rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .detail-table td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .detail-table tbody tr:hover {
+        background: rgba(58, 143, 183, 0.05);
+    }
+    
+    /* Прогресс в таблице */
+    .table-progress {
+        width: 100px;
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+        display: inline-block;
+        margin-left: 8px;
+    }
+    
+    .table-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-color), var(--primary-color));
+        border-radius: 3px;
+    }
+    
+    /* Карточка станка */
+    .machine-mini-card {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .machine-mini-card:last-child {
+        margin-bottom: 0;
+    }
+    
+    .machine-mini-info {
+        flex: 1;
+    }
+    
+    .machine-mini-name {
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .machine-mini-load {
+        font-size: 0.7rem;
+        color: #6c757d;
+    }
+    
+    .machine-mini-load-bar {
+        width: 60px;
+        height: 4px;
+        background: #e9ecef;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-left: 10px;
+    }
+    
+    .machine-mini-load-fill {
+        height: 100%;
+        background: var(--primary-color);
+        border-radius: 2px;
+    }
+    
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
 {% endblock %}
 
-
 {% block content %}
+<!-- Заголовок -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-speedometer2 me-2" style="color: var(--primary-color);"></i>
+            Панель управления
+        </h2>
+        <p class="text-muted mb-0">
+            <i class="bi bi-calendar3 me-1"></i> {{ now|date:"d.m.Y H:i" }}
+        </p>
+    </div>
+    <div>
+        <button class="btn btn-outline-primary" onclick="location.reload()">
+            <i class="bi bi-arrow-repeat me-1"></i>Обновить
+        </button>
+    </div>
+</div>
 
+<!-- KPI Карточки -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="kpi-item">
+                <div class="kpi-value">{{ details_stats.total }}</div>
+                <div class="kpi-label">Всего деталей</div>
+                <div class="kpi-trend">
+                    <i class="bi bi-check-circle-fill text-success me-1"></i>
+                    {{ details_stats.completed }} готово
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="kpi-label">Средняя готовность</span>
+                    <span class="fw-bold">{{ details_stats.avg_completion }}%</span>
+                </div>
+                <div class="progress-lg">
+                    <div class="progress-bar-custom" style="width: {{ details_stats.avg_completion }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="kpi-item">
+                <div class="kpi-value">{{ machines_stats.total }}</div>
+                <div class="kpi-label">Всего станков</div>
+                <div class="kpi-trend">
+                    <i class="bi bi-play-circle-fill text-success me-1"></i>
+                    {{ machines_stats.active }} в работе
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="kpi-label">Средняя загрузка</span>
+                    <span class="fw-bold">{{ machines_stats.avg_load }}%</span>
+                </div>
+                <div class="progress-lg">
+                    <div class="progress-bar-custom" style="width: {{ machines_stats.avg_load }}%"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-2 small text-muted">
+                    <span><span class="status-indicator status-success"></span>Низкая {{ machine_load_data.low }}</span>
+                    <span><span class="status-indicator status-warning"></span>Средняя {{ machine_load_data.medium }}</span>
+                    <span><span class="status-indicator status-danger"></span>Высокая {{ machine_load_data.high }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="kpi-item">
+                <div class="kpi-value">{{ stages_stats.total }}</div>
+                <div class="kpi-label">Всего этапов</div>
+                <div class="kpi-trend">
+                    <i class="bi bi-check-circle-fill text-success me-1"></i>
+                    {{ stages_stats.completed }} выполнено
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="kpi-label">Статус этапов</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                    <span><span class="status-indicator status-success"></span>Выполнено</span>
+                    <span class="fw-bold">{{ stages_stats.completed }}</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                    <span><span class="status-indicator status-warning"></span>В работе</span>
+                    <span class="fw-bold">{{ stages_stats.in_progress }}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span><span class="status-indicator status-secondary"></span>Ожидание</span>
+                    <span class="fw-bold">{{ stages_stats.pending }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="kpi-item">
+                <div class="kpi-value text-danger">{{ details_stats.overdue }}</div>
+                <div class="kpi-label">Просроченные детали</div>
+                <div class="kpi-trend text-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    Требуют внимания
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="kpi-label">Состояние станков</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                    <span><span class="status-indicator status-success"></span>В работе</span>
+                    <span class="fw-bold">{{ machines_stats.active }}</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1">
+                    <span><span class="status-indicator status-warning"></span>Ожидание</span>
+                    <span class="fw-bold">{{ machines_stats.idle }}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span><span class="status-indicator status-danger"></span>Ремонт</span>
+                    <span class="fw-bold">{{ machines_stats.maintenance }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-<h1>
+<!-- Графики и аналитика -->
+<div class="row g-4 mb-4">
+    <!-- График загрузки станков по цехам -->
+    <div class="col-md-6">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-bar-chart-fill me-2"></i>Загрузка станков по цехам</h5>
+                <i class="bi bi-cpu"></i>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="workshopsLoadChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Круговая диаграмма загрузки -->
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-pie-chart-fill me-2"></i>Уровень загрузки</h5>
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <div style="height: 200px;">
+                <canvas id="loadPieChart"></canvas>
+            </div>
+            <div class="text-center mt-3 small text-muted">
+                <span class="me-2"><span class="status-indicator status-success"></span>Низкая &lt;30%</span>
+                <span class="me-2"><span class="status-indicator status-warning"></span>Средняя 30-80%</span>
+                <span><span class="status-indicator status-danger"></span>Высокая >80%</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Динамика выполнения этапов -->
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-graph-up me-2"></i>Выполнение этапов</h5>
+                <i class="bi bi-calendar-week"></i>
+            </div>
+            <div style="height: 200px;">
+                <canvas id="stagesLineChart"></canvas>
+            </div>
+            <div class="text-center mt-2 small text-muted">
+                За последние 7 дней
+            </div>
+        </div>
+    </div>
+</div>
 
-Дашборд
+<!-- Топ загруженных станков и риски -->
+<div class="row g-4 mb-4">
+    <!-- Топ-5 загруженных станков -->
+    <div class="col-md-4">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-trophy-fill me-2"></i>Топ загруженных станков</h5>
+                <i class="bi bi-cpu"></i>
+            </div>
+            <div>
+                {% for machine in top_loaded_machines %}
+                <div class="machine-mini-card">
+                    <div class="machine-mini-info">
+                        <div class="machine-mini-name">{{ machine.model.name }}</div>
+                        <div class="machine-mini-load">{{ machine.workshop.name }}</div>
+                    </div>
+                    <div class="text-end">
+                        <span class="fw-bold {% if machine.load_percent > 80 %}text-danger{% endif %}">
+                            {{ machine.load_percent }}%
+                        </span>
+                        <div class="machine-mini-load-bar">
+                            <div class="machine-mini-load-fill" style="width: {{ machine.load_percent }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center py-3">Нет данных о станках</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статусы по цехам -->
+    <div class="col-md-4">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-building me-2"></i>Состояние по цехам</h5>
+                <i class="bi bi-bar-chart"></i>
+            </div>
+            <div style="height: 200px;">
+                <canvas id="workshopStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Детали с высоким риском -->
+    <div class="col-md-4">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Риск просрочки</h5>
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div>
+                {% for detail in at_risk_details %}
+                <div class="machine-mini-card">
+                    <div class="machine-mini-info">
+                        <div class="machine-mini-name">{{ detail.article }} - {{ detail.name|truncatechars:20 }}</div>
+                        <div class="machine-mini-load">
+                            Готовность: {{ detail.completion_percent }}% | 
+                            Срок: {{ detail.planned_completion_date|date:"d.m.Y" }}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-warning">{{ detail.completion_percent }}%</span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center py-3">Нет деталей с высоким риском</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
 
-</h1>
+<!-- Сводная таблица деталей -->
+<div class="dashboard-card mb-4">
+    <div class="card-header-custom">
+        <h5><i class="bi bi-table me-2"></i>Сводная таблица деталей</h5>
+        <div>
+            <span class="badge bg-primary me-2">Всего: {{ details_stats.total }}</span>
+            <span class="badge bg-success">Готово: {{ details_stats.completed }}</span>
+        </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="detail-table table">
+            <thead>
+                <tr>
+                    <th>Артикул</th>
+                    <th>Наименование</th>
+                    <th>Статус</th>
+                    <th>Готовность</th>
+                    <th>Этапы</th>
+                    <th>Текущий этап</th>
+                    <th>Плановая дата</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detail in details_table %}
+                <tr>
+                    <td><span class="fw-bold">{{ detail.article }}</span></td>
+                    <td>{{ detail.name|truncatechars:30 }}</td>
+                    <td>
+                        {% if detail.status.name == 'Готово' %}
+                        <span class="badge bg-success">{{ detail.status.name }}</span>
+                        {% elif 'работе' in detail.status.name %}
+                        <span class="badge bg-warning">{{ detail.status.name }}</span>
+                        {% elif 'ожида' in detail.status.name %}
+                        <span class="badge bg-secondary">{{ detail.status.name }}</span>
+                        {% else %}
+                        <span class="badge bg-info">{{ detail.status.name }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <span class="fw-bold me-2" style="min-width: 40px;">{{ detail.completion_percent }}%</span>
+                            <div class="table-progress">
+                                <div class="table-progress-fill" style="width: {{ detail.completion_percent }}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark">
+                            {{ detail.completed_stages }}/{{ detail.total_stages }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if detail.current_stage %}
+                        <span class="small">{{ detail.current_stage.stage_type.name }}</span>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if detail.planned_completion_date %}
+                            {% if detail.planned_completion_date < now %}
+                            <span class="text-danger small">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                {{ detail.planned_completion_date|date:"d.m.Y" }}
+                            </span>
+                            {% elif detail.planned_completion_date < now|add_days:3 %}
+                            <span class="text-warning small">
+                                {{ detail.planned_completion_date|date:"d.m.Y" }}
+                            </span>
+                            {% else %}
+                            <span class="small">{{ detail.planned_completion_date|date:"d.m.Y" }}</span>
+                            {% endif %}
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if details_table %}
+    <div class="text-center mt-3">
+        <a href="{% url 'details' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-arrow-right me-1"></i>Все детали
+        </a>
+    </div>
+    {% endif %}
+</div>
 
-
-<h2>
-
-Загрузка станков
-
-</h2>
-
-
-<div>
-
-График будет здесь
-
+<!-- Последние детали -->
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-clock-history me-2"></i>Последние добавленные детали</h5>
+                <i class="bi bi-box"></i>
+            </div>
+            <div>
+                {% for detail in recent_details %}
+                <div class="machine-mini-card">
+                    <div class="machine-mini-info">
+                        <div class="machine-mini-name">{{ detail.article }} - {{ detail.name|truncatechars:30 }}</div>
+                        <div class="machine-mini-load">
+                            <i class="bi bi-calendar3 me-1"></i> {{ detail.created_at|date:"d.m.Y H:i" }}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge {% if detail.completion_percent == 100 %}bg-success{% else %}bg-primary{% endif %}">
+                            {{ detail.completion_percent }}%
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center py-3">Нет добавленных деталей</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-info-circle me-2"></i>Быстрые действия</h5>
+                <i class="bi bi-lightning-charge"></i>
+            </div>
+            <div class="row g-3">
+                <div class="col-6">
+                    <a href="{% url 'details' %}" class="btn btn-outline-primary w-100 py-3">
+                        <i class="bi bi-box d-block fs-4 mb-2"></i>
+                        Управление деталями
+                    </a>
+                </div>
+                <div class="col-6">
+                    <a href="{% url 'machines' %}" class="btn btn-outline-primary w-100 py-3">
+                        <i class="bi bi-cpu d-block fs-4 mb-2"></i>
+                        Управление станками
+                    </a>
+                </div>
+                <div class="col-6">
+                    <a href="{% url 'stages' %}" class="btn btn-outline-primary w-100 py-3">
+                        <i class="bi bi-diagram-3 d-block fs-4 mb-2"></i>
+                        Этапы обработки
+                    </a>
+                </div>
+                <div class="col-6">
+                    <a href="/admin/" class="btn btn-outline-primary w-100 py-3" target="_blank">
+                        <i class="bi bi-shield-lock d-block fs-4 mb-2"></i>
+                        Администрирование
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 
+<!-- Добавьте это в конец dashboard.html перед закрывающим тегом body -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-download me-2"></i>Экспорт данных
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Выберите формат экспорта:</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="exportDashboardData()">
+                        <i class="bi bi-file-earmark-spreadsheet me-2"></i>JSON
+                    </button>
+                    <button class="btn btn-outline-success" onclick="alert('Функция в разработке')">
+                        <i class="bi bi-file-earmark-excel me-2"></i>Excel
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="alert('Функция в разработке')">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-<h2>
+<!-- Кнопки быстрых действий -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+    <div class="btn-group-vertical">
+        <button class="btn btn-primary mb-2" onclick="$('#exportModal').modal('show')" title="Экспорт">
+            <i class="bi bi-download"></i>
+        </button>
+        <button class="btn btn-success mb-2" onclick="location.reload()" title="Обновить">
+            <i class="bi bi-arrow-repeat"></i>
+        </button>
+        <button class="btn btn-info" onclick="printDashboard()" title="Печать">
+            <i class="bi bi-printer"></i>
+        </button>
+    </div>
+</div>
 
-Детали
-
-</h2>
-
-
-<table border="1">
-
-<tr>
-
-<th>
-
-Артикул
-
-</th>
-
-<th>
-
-Название
-
-</th>
-
-<th>
-
-Готовность
-
-</th>
-
-</tr>
-
-
-<tr>
-
-<td>
-
-Example
-
-</td>
-
-<td>
-
-Example
-
-</td>
-
-<td>
-
-50%
-
-</td>
-
-</tr>
-
-
-</table>
-
-
+<!-- Индикатор последнего обновления -->
+<div class="position-fixed start-0 bottom-0 p-3 text-muted small" style="z-index: 5">
+    <i class="bi bi-clock me-1"></i>Последнее обновление: <span id="lastUpdateTime"></span>
+</div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 1. График загрузки станков по цехам
+    var ctx1 = document.getElementById('workshopsLoadChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: [{% for w in workshops_load %}'{{ w.name }}',{% endfor %}],
+            datasets: [{
+                label: 'Загрузка %',
+                data: [{% for w in workshops_load %}{{ w.load }},{% endfor %}],
+                backgroundColor: 'rgba(58, 143, 183, 0.7)',
+                borderColor: 'rgba(11, 59, 92, 1)',
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Загрузка: ' + context.raw + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Процент загрузки'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Круговая диаграмма загрузки
+    var ctx2 = document.getElementById('loadPieChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: ['Низкая (<30%)', 'Средняя (30-80%)', 'Высокая (>80%)'],
+            datasets: [{
+                data: [
+                    {{ machine_load_data.low }},
+                    {{ machine_load_data.medium }},
+                    {{ machine_load_data.high }}
+                ],
+                backgroundColor: [
+                    '#28a745',
+                    '#ffc107',
+                    '#dc3545'
+                ],
+                borderWidth: 0,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.raw + ' станков';
+                        }
+                    }
+                }
+            },
+            cutout: '60%'
+        }
+    });
+
+    // 3. Линейный график выполнения этапов
+    var ctx3 = document.getElementById('stagesLineChart').getContext('2d');
+    new Chart(ctx3, {
+        type: 'line',
+        data: {
+            labels: [{% for day in last_7_days %}'{{ day }}',{% endfor %}],
+            datasets: [{
+                label: 'Выполнено этапов',
+                data: [{% for count in completed_by_day %}{{ count }},{% endfor %}],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                borderWidth: 2,
+                pointBackgroundColor: '#28a745',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Выполнено: ' + context.raw + ' этапов';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0
+                    }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+
+    // 4. График состояния по цехам (stacked bar)
+    var ctx4 = document.getElementById('workshopStatusChart').getContext('2d');
+    
+    // Подготовка данных для графика состояний по цехам
+    var workshopNames = [{% for ws in workshop_status %}'{{ ws.workshop }}',{% endfor %}];
+    var activeData = [{% for ws in workshop_status %}{{ ws.active }},{% endfor %}];
+    var idleData = [{% for ws in workshop_status %}{{ ws.idle }},{% endfor %}];
+    var maintenanceData = [{% for ws in workshop_status %}{{ ws.maintenance }},{% endfor %}];
+    
+    new Chart(ctx4, {
+        type: 'bar',
+        data: {
+            labels: workshopNames,
+            datasets: [
+                {
+                    label: 'В работе',
+                    data: activeData,
+                    backgroundColor: '#28a745',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Ожидание',
+                    data: idleData,
+                    backgroundColor: '#ffc107',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Ремонт',
+                    data: maintenanceData,
+                    backgroundColor: '#dc3545',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10,
+                        font: { size: 10 }
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+
+    // 5. Автоматическое обновление данных каждые 60 секунд
+    setInterval(function() {
+        $.get('/api/dashboard/update/', function(data) {
+            // Обновление KPI значений
+            updateMetrics(data);
+        });
+    }, 60000);
+
+    // Функция обновления метрик
+    function updateMetrics(data) {
+        // Здесь можно добавить логику обновления цифр на дашборде
+        // без перезагрузки страницы
+        console.log('Данные обновлены:', data);
+    }
+
+    // Анимация при наведении на карточки
+    $('.dashboard-card').hover(
+        function() { $(this).addClass('shadow-lg'); },
+        function() { $(this).removeClass('shadow-lg'); }
+    );
+
+    // Обновление времени последнего обновления
+    function updateTimestamp() {
+        var now = new Date();
+        var timeStr = now.toLocaleTimeString('ru-RU');
+        $('#lastUpdateTime').text(timeStr);
+    }
+    
+    // Обновляем время каждую минуту
+    setInterval(updateTimestamp, 60000);
+    updateTimestamp();
+});
+
+// Функция для экспорта данных дашборда
+function exportDashboardData() {
+    var data = {
+        details: {{ details_stats|safe }},
+        machines: {{ machines_stats|safe }},
+        stages: {{ stages_stats|safe }},
+        timestamp: new Date().toISOString()
+    };
+    
+    var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'dashboard_export_' + new Date().toISOString().slice(0,10) + '.json';
+    link.click();
+}
+
+// Функция для печати дашборда
+function printDashboard() {
+    window.print();
+}
+
+// Обработка клавиатурных сокращений
+$(document).on('keydown', function(e) {
+    // Ctrl+R - обновить данные
+    if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        location.reload();
+    }
+    
+    // Ctrl+E - экспорт данных
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        exportDashboardData();
+    }
+    
+    // Ctrl+P - печать
+    if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        printDashboard();
+    }
+});
+</script>
+{% endblock extra_js %}
