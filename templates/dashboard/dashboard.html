@@ -911,12 +911,12 @@ $(document).ready(function() {
     });
 
     // 5. Автоматическое обновление данных каждые 60 секунд
-    setInterval(function() {
+   /* setInterval(function() {
         $.get('/api/dashboard/update/', function(data) {
             // Обновление KPI значений
             updateMetrics(data);
         });
-    }, 60000);
+    }, 60000);*/
 
     // Функция обновления метрик
     function updateMetrics(data) {
