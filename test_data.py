@@ -241,8 +241,6 @@ for status_id in [1, 3, 4]:
 
 
 
-
-
 from decimal import Decimal
 from datetime import datetime
 from apps.core.models import Machine, MachineModel, Workshop, Status
@@ -341,6 +339,203 @@ for data in machines_data:
 
 print(f"ИТОГИ: Создано {created_count}, обновлено {updated_count}")
 print(f"Всего станков: {Machine.objects.count()}")
+
+
+
+from datetime import datetime
+from apps.core.models import Stage, Detail, StageType, Machine
+
+print("Начинаем заполнение этапов обработки...\n")
+
+# Получаем все необходимые справочники
+details = {d.article: d for d in Detail.objects.all()}  # Индексируем по article
+stage_types = {st.id: st for st in StageType.objects.all()}
+machines = {m.id: m for m in Machine.objects.all()}
+
+# Для удобства также создаем словарь деталей по ID (для поиска)
+details_by_id = {d.id: d for d in Detail.objects.all()}
+
+print("Проверка наличия справочных данных:")
+
+# Проверка деталей
+required_detail_ids = [1, 2, 3, 4]
+for detail_id in required_detail_ids:
+    detail = details_by_id.get(detail_id)
+    if detail:
+        print(f"  ✓ Деталь ID {detail_id}: {detail.article} — {detail.name}")
+    else:
+        print(f"  ✗ Деталь ID {detail_id} не найдена!")
+
+# Проверка типов этапов
+required_stage_ids = [1, 2, 4, 6]
+for stage_id in required_stage_ids:
+    if stage_id in stage_types:
+        print(f"  ✓ Тип этапа ID {stage_id}: {stage_types[stage_id].name}")
+    else:
+        print(f"  ✗ Тип этапа ID {stage_id} не найден!")
+
+# Проверка станков
+required_machine_ids = [1, 2, 4]
+for machine_id in required_machine_ids:
+    if machine_id in machines:
+        print(f"  ✓ Станок ID {machine_id}: {machines[machine_id].inventory_number}")
+    else:
+        print(f"  ✗ Станок ID {machine_id} не найден!")
+
+print("\n" + "=" * 60)
+
+# Данные этапов обработки
+stages_data = [
+    # DTL-001 (Вал приводной) - в работе
+    {
+        "detail": details_by_id[1],  # DTL-001
+        "stage_type": stage_types[1],  # Токарная обработка
+        "order_num": 1,
+        "machine": machines.get(1),  # СТ-16К20-001
+        "is_completed": False,
+        "completion_date": None,
+        "notes": "Токарная обработка вала, черновой проход"
+    },
+    {
+        "detail": details_by_id[1],  # DTL-001
+        "stage_type": stage_types[2],  # Фрезеровка
+        "order_num": 2,
+        "machine": machines.get(2),  # СТ-6Р82Ш-001
+        "is_completed": False,
+        "completion_date": None,
+        "notes": "Фрезеровка шпоночного паза"
+    },
+    {
+        "detail": details_by_id[1],  # DTL-001
+        "stage_type": stage_types[4],  # Шлифовка
+        "order_num": 3,
+        "machine": machines.get(4),  # СТ-3Г71-001
+        "is_completed": False,
+        "completion_date": None,
+        "notes": "Финишная шлифовка поверхности"
+    },
+    
+    # DTL-002 (Фланец соединительный) - частично завершен
+    {
+        "detail": details_by_id[2],  # DTL-002
+        "stage_type": stage_types[1],  # Токарная обработка
+        "order_num": 1,
+        "machine": machines.get(1),  # СТ-16К20-001
+        "is_completed": True,
+        "completion_date": datetime(2026, 2, 15, 17, 20),
+        "notes": "Токарная обработка фланца, выполнена в срок"
+    },
+    {
+        "detail": details_by_id[2],  # DTL-002
+        "stage_type": stage_types[2],  # Фрезеровка
+        "order_num": 2,
+        "machine": machines.get(2),  # СТ-6Р82Ш-001
+        "is_completed": True,
+        "completion_date": datetime(2026, 3, 16, 10, 15),
+        "notes": "Фрезеровка отверстий под крепление"
+    },
+    {
+        "detail": details_by_id[2],  # DTL-002
+        "stage_type": stage_types[6],  # Контроль качества
+        "order_num": 3,
+        "machine": None,  # Станок не указан (контроль ОТК)
+        "is_completed": False,
+        "completion_date": None,
+        "notes": "Контроль качества после мехобработки"
+    },
+    
+    # DTL-003 (Корпус редуктора) - полностью завершен
+    {
+        "detail": details_by_id[3],  # DTL-003
+        "stage_type": stage_types[1],  # Токарная обработка
+        "order_num": 1,
+        "machine": machines.get(1),  # СТ-16К20-001
+        "is_completed": True,
+        "completion_date": datetime(2025, 12, 5, 13, 10),
+        "notes": "Токарная обработка посадочных мест"
+    },
+    {
+        "detail": details_by_id[3],  # DTL-003
+        "stage_type": stage_types[2],  # Фрезеровка
+        "order_num": 2,
+        "machine": machines.get(2),  # СТ-6Р82Ш-001
+        "is_completed": True,
+        "completion_date": datetime(2025, 12, 22, 13, 10, 1),
+        "notes": "Фрезеровка плоскостей разъема"
+    },
+    
+    # DTL-004 (Ось направляющая) - завершен (но деталь отменена)
+    {
+        "detail": details_by_id[4],  # DTL-004
+        "stage_type": stage_types[1],  # Токарная обработка
+        "order_num": 1,
+        "machine": machines.get(1),  # СТ-16К20-001
+        "is_completed": True,
+        "completion_date": datetime(2024, 11, 5, 13, 10, 2),
+        "notes": "Токарная обработка оси, выполнена полностью"
+    },
+]
+
+# Создаем этапы
+created_count = 0
+updated_count = 0
+
+for data in stages_data:
+    try:
+        # Для этапов уникальность определяется деталью + номером этапа
+        obj, created = Stage.objects.update_or_create(
+            detail=data["detail"],
+            order_num=data["order_num"],
+            defaults={
+                "stage_type": data["stage_type"],
+                "machine": data["machine"],
+                "is_completed": data["is_completed"],
+                "completion_date": data["completion_date"],
+                "notes": data.get("notes", ""),
+            }
+        )
+        
+        if created:
+            created_count += 1
+            status_icon = "✓"
+        else:
+            updated_count += 1
+            status_icon = "↻"
+        
+        # Формируем строку статуса выполнения
+        completion_status = "ЗАВЕРШЕН" if obj.is_completed else "В РАБОТЕ"
+        if obj.completion_date:
+            completion_status += f" ({obj.completion_date.strftime('%d.%m.%Y %H:%M')})"
+        
+        machine_info = obj.machine.inventory_number if obj.machine else "ОТК/Контроль"
+        
+        print(f"{status_icon} Этап {obj.order_num} для {obj.detail.article}")
+        print(f"  • Тип: {obj.stage_type.name}")
+        print(f"  • Станок: {machine_info}")
+        print(f"  • Статус: {completion_status}")
+        print()
+        
+    except Exception as e:
+        print(f"✗ Ошибка при создании этапа для детали {data['detail'].article}, порядок {data['order_num']}: {e}")
+        print()
+
+print("=" * 60)
+print(f"ИТОГИ ЗАПОЛНЕНИЯ ЭТАПОВ:")
+print(f"Создано новых: {created_count}")
+print(f"Обновлено существующих: {updated_count}")
+print(f"Всего этапов в базе: {Stage.objects.count()}")
+print("=" * 60)
+
+# Статистика по деталям
+print(f"\nСтатистика по деталям:")
+for detail_id in [1, 2, 3, 4]:
+    detail = details_by_id.get(detail_id)
+    if detail:
+        stages_count = Stage.objects.filter(detail=detail).count()
+        completed_count = Stage.objects.filter(detail=detail, is_completed=True).count()
+        print(f"• {detail.article} ({detail.name}): {stages_count} этапов, выполнено {completed_count}")
+
+
 
 
 from datetime import datetime
