@@ -842,7 +842,8 @@ def available_details_api(request):
     completed_status = get_completed_status()
     details = Detail.objects.filter(
         is_deleted=False,
-        status=completed_status  # пример статусов
+    ).exclude(
+        status=completed_status
     ).order_by("article")
 
     data = [
