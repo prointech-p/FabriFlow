@@ -2,7 +2,12 @@ from django.shortcuts import render, get_object_or_404
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q, Count, F, Value, IntegerField, Case, When, Avg, DurationField, ExpressionWrapper
+from django.db.models import (
+    Q, Count, F, 
+    Value, IntegerField, Case, When, 
+    Avg, DurationField, ExpressionWrapper,
+    OuterRef, Subquery
+)
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.utils import timezone
@@ -20,6 +25,13 @@ from .models import (
     Machine,
     MachineAssignment
 )
+
+def get_completed_status():
+    """
+    Получение статуса, соответствующего готовности.
+    """
+    status = Status.objects.filter(name='Завершено').first()
+    return status
 
 
 def dashboard(request):
@@ -220,14 +232,14 @@ def dashboard(request):
     
     return render(request, 'dashboard/dashboard.html', context)
 
-
-
-
 def detail_list(request):
     """
     View для отображения списка деталей с использованием DataTables.
-    """
-    # Базовый queryset с оптимизацией запросов
+    """  
+    completed_status = get_completed_status()  # Объект статуса завершенности
+    now = timezone.now()  # Текущее время
+
+   # Базовый queryset с оптимизацией запросов
     details = Detail.objects.select_related(
         'status'
     ).prefetch_related(
@@ -237,31 +249,62 @@ def detail_list(request):
     
     # Аннотируем дополнительную информацию
     details = details.annotate(
-        total_stages=Count('stages', filter=Q(stages__is_deleted=False)),
-        completed_stages=Count('stages', filter=Q(stages__is_completed=True, stages__is_deleted=False)),
-        current_stage_order=Coalesce(
-            F('stages__order_num'),
-            Value(0),
-            output_field=IntegerField()
-        )
+        total_stages=Count(
+            'stages', 
+            filter=Q(stages__is_deleted=False), 
+            distinct=True
+        ),
+        completed_stages=Count(
+            'stages', 
+            filter=Q(stages__is_completed=True, 
+                     stages__is_deleted=False)
+        ),
+        # current_stage_order=Coalesce(
+        #     F('stages__order_num'),
+        #     Value(0),
+        #     output_field=IntegerField()
+        # )
     )
     
     # Добавляем информацию о текущем этапе
+    # for detail in details:
+    #     detail.current_stage = detail.stages.filter(
+    #         is_completed=False
+    #     ).order_by('order_num').first()
     for detail in details:
-        detail.current_stage = detail.stages.filter(
-            is_completed=False
-        ).order_by('order_num').first()
-    
+        detail.current_stage = next(
+            (
+                stage
+                for stage in detail.stages.all()
+                if not stage.is_completed
+            ),
+            None
+        )
+
+        detail.is_completed = (detail.status == completed_status)
+
+        detail.is_overdue = (
+            detail.planned_completion_date
+            and detail.planned_completion_date < now
+            and not detail.is_completed
+        )
+
+        detail.is_warning = (
+            detail.planned_completion_date
+            and now <= detail.planned_completion_date <= now + timedelta(days=3)
+            and not detail.is_completed
+        )
+        
     # Статистика для метрик
     total_details = details.count()
-    completed_details = details.filter(status__name__icontains='готов').count()
+    completed_details = details.filter(status=completed_status).count()
     in_progress_details = details.filter(status__name__icontains='работе').count()
     
-    # Просроченные детали
-    now = datetime.now()
+    # Просроченные детали   
     overdue_details = details.filter(
-        planned_completion_date__lt=now,
-        status__name__icontains='готов'
+        planned_completion_date__lt=now
+    ).exclude(
+        status=completed_status
     ).count()
     
     # Получаем справочники для фильтров
@@ -298,19 +341,12 @@ def detail_card(request,id):
     stages = detail.stages.all()
 
     return render(
-
         request,
-
         "details/detail_card.html",
-
         {
-
             "detail":detail,
-
             "stages":stages
-
         }
-
     )
 
 
@@ -491,7 +527,12 @@ def stage_list(request):
         'machine',
         'machine__workshop',
         'machine__model'
-    ).filter(is_deleted=False).order_by('detail', 'order_num')
+    ).filter(
+        is_deleted=False
+    ).order_by(
+        'detail_id', 
+        'order_num'
+    )
     
     # Аннотируем дополнительную информацию
     now = timezone.now()
@@ -514,10 +555,11 @@ def stage_list(request):
         # Проверка на просрочку
         if not stage.is_completed and stage.machine:
             # Ищем назначение для этого этапа
-            assignment = stage.machine.assignments.filter(
-                detail=stage.detail,
-                actual_end__isnull=True
-            ).first()
+            # assignment = stage.machine.assignments.filter(
+            #     detail=stage.detail,
+            #     actual_end__isnull=True
+            # ).first()
+            assignment = assignments_dict.get((stage.machine_id, stage.detail_id))
             
             if assignment and assignment.planned_end < now:
                 stage.is_overdue = True
@@ -541,10 +583,10 @@ def stage_list(request):
             duration = stage.completion_date - stage.created_at
             stage.duration_hours = round(duration.total_seconds() / 3600, 1)
 
-        # Добавляем назначение к каждому этапу
-        for stage in stages:
-            key = (stage.machine_id, stage.detail_id)
-            stage.related_assignment = assignments_dict.get(key)
+    # Добавляем назначение к каждому этапу
+    for stage in stages:
+        key = (stage.machine_id, stage.detail_id)
+        stage.related_assignment = assignments_dict.get(key)
 
     
     # Статистика для метрик
@@ -568,20 +610,51 @@ def stage_list(request):
             overdue_stages += 1
     
     # Среднее время выполнения этапа   
+    previous_stage_completion = Stage.objects.filter(
+        detail=OuterRef('detail'),
+        order_num__lt=OuterRef('order_num'),
+        completion_date__isnull=False
+    ).order_by('-order_num').values('completion_date')[:1]
+
+
     avg_duration = stages.filter(
         is_completed=True,
         completion_date__isnull=False
     ).annotate(
+        prev_completion=Subquery(previous_stage_completion)
+    ).filter(
+        prev_completion__isnull=False
+    ).annotate(
         duration=ExpressionWrapper(
-            F('completion_date') - F('created_at'),
+            F('completion_date') - F('prev_completion'),
             output_field=DurationField()
         )
-    ).aggregate(avg=Avg('duration'))['avg']
-    
+    ).aggregate(
+        avg=Avg('duration')
+    )['avg']
+
+
     if avg_duration:
         avg_hours = round(avg_duration.total_seconds() / 3600, 1)
     else:
         avg_hours = 0
+
+
+
+    # avg_duration = stages.filter(
+    #     is_completed=True,
+    #     completion_date__isnull=False
+    # ).annotate(
+    #     duration=ExpressionWrapper(
+    #         F('completion_date') - F('created_at'),
+    #         output_field=DurationField()
+    #     )
+    # ).aggregate(avg=Avg('duration'))['avg']
+    
+    # if avg_duration:
+    #     avg_hours = round(avg_duration.total_seconds() / 3600, 1)
+    # else:
+    #     avg_hours = 0
     
     # Получаем справочники для фильтров
     stage_types = StageType.objects.filter(
@@ -755,3 +828,163 @@ def detail_api(request, pk):
     API для получения данных детали (альтернативный вариант)
     """
     return detail_detail(request, pk)
+
+
+@login_required
+@require_GET
+def available_details_api(request):
+    """
+    Список деталей, которые ещё можно назначить на станки
+    (без активного/текущего назначения или с незавершёнными этапами)
+    """
+    # Базовый вариант — все активные (не удалённые) детали
+    # Можно ужесточить: без завершённых назначений, по цеху и т.д.
+    completed_status = get_completed_status()
+    details = Detail.objects.filter(
+        is_deleted=False,
+        status=completed_status  # пример статусов
+    ).order_by("article")
+
+    data = [
+        {
+            "id": d.id,
+            "article": d.article,
+            "name": d.name or "(без названия)",
+            "completion": float(d.completion_percent),  # для информации
+            "status": d.status.name if d.status else "—",
+        }
+        for d in details
+    ]
+
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+@require_GET
+def detail_stages_api(request, detail_id):
+    """
+    Возвращает этапы конкретной детали (Stage), которые ещё не завершены
+    """
+    try:
+        detail = Detail.objects.get(pk=detail_id, is_deleted=False)
+    except Detail.DoesNotExist:
+        return JsonResponse({"error": "Деталь не найдена"}, status=404)
+
+    stages = Stage.objects.filter(
+        detail=detail,
+        is_deleted=False,
+        is_completed=False
+    ).select_related("stage_type", "machine").order_by("order_num")
+
+    data = [
+        {
+            "id": stage.id,
+            "order": stage.order_num,
+            "name": stage.stage_type.name,
+            "machine": stage.machine.__str__() if stage.machine else "Не назначен",
+            "machine_id": stage.machine.id if stage.machine else None,
+        }
+        for stage in stages
+    ]
+
+    return JsonResponse(data, safe=False)
+
+
+@require_POST
+@login_required  
+def assign_task_to_machine(request, machine_id):
+    """
+    Назначает задачу (этап детали) на конкретный станок.
+    
+    Ожидаемые поля в POST:
+    - detail       (id детали)
+    - stage        (id этапа Stage)
+    - planned_start (datetime-local строка)
+    - planned_end   (datetime-local строка)
+    - notes         (опционально)
+    """
+    machine = get_object_or_404(Machine, pk=machine_id, is_deleted=False)
+
+    detail_id = request.POST.get('detail')
+    stage_id  = request.POST.get('stage')
+    start_str = request.POST.get('planned_start')
+    end_str   = request.POST.get('planned_end')
+    notes     = request.POST.get('notes', '').strip()
+
+    if not all([detail_id, stage_id, start_str, end_str]):
+        return JsonResponse({
+            "success": False,
+            "error": "Не переданы все обязательные поля"
+        }, status=400)
+
+    try:
+        detail = Detail.objects.get(pk=detail_id, is_deleted=False)
+        stage  = Stage.objects.get(
+            pk=stage_id,
+            detail=detail,           # защита: этап должен принадлежать этой детали
+            is_deleted=False,
+            is_completed=False       # нельзя назначать уже завершённый этап
+        )
+    except (Detail.DoesNotExist, Stage.DoesNotExist):
+        return JsonResponse({
+            "success": False,
+            "error": "Деталь или этап не найдены / недоступны"
+        }, status=404)
+
+    # Парсим даты (формат datetime-local → 2025-03-13T14:30)
+    try:
+        planned_start = timezone.datetime.fromisoformat(start_str)
+        planned_end   = timezone.datetime.fromisoformat(end_str)
+
+        if planned_end <= planned_start:
+            return JsonResponse({
+                "success": False,
+                "error": "Дата окончания должна быть позже даты начала"
+            }, status=400)
+
+    except ValueError:
+        return JsonResponse({
+            "success": False,
+            "error": "Некорректный формат дат"
+        }, status=400)
+
+    # Проверяем, не занят ли станок в это время (очень базовая проверка)
+    overlapping = MachineAssignment.objects.filter(
+        machine=machine,
+        planned_start__lt=planned_end,
+        planned_end__gt=planned_start,
+        # можно добавить: actual_end__isnull=True  — только активные
+    ).exists()
+
+    if overlapping:
+        return JsonResponse({
+            "success": False,
+            "error": "Станок уже имеет назначение в этот временной интервал"
+        }, status=409)  # Conflict
+
+    # Создаём назначение
+    assignment = MachineAssignment.objects.create(
+        machine=machine,
+        detail=detail,
+        planned_start=planned_start,
+        planned_end=planned_end,
+        notes=notes,
+        # created_by=request.user  — если добавишь поле в модель
+    )
+
+    # Можно связать этап с назначением, если добавишь ForeignKey в Stage → assignment
+    # stage.assignment = assignment
+    # stage.save(update_fields=['assignment'])
+
+    # Опционально: изменить статус станка, если он был в ожидании
+    if machine.status and "ожида" in machine.status.name.lower():
+        working_status = Status.objects.filter(name__icontains="работа").first()
+        if working_status:
+            machine.status = working_status
+            machine.save(update_fields=['status'])
+
+    return JsonResponse({
+        "success": True,
+        "assignment_id": assignment.id,
+        "message": f"Этап {stage} детали {detail} назначен на {machine}"
+    })

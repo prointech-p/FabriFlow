@@ -358,6 +358,13 @@ class Detail(BaseModel):
 
         self.save(update_fields=["completion_percent"])
 
+        if self.completion_percent == 100:
+            status = Status.objects.filter(
+                name='Завершено'
+            ).first()
+            self.status = status
+            self.save(update_fields=["status"])
+
 
 # ============================================================
 # ЭТАПЫ ОБРАБОТКИ

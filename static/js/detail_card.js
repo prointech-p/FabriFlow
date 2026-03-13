@@ -1,13 +1,31 @@
 $(document).ready(function() {
     // Переменная для хранения графика
     var completionChart = null;
+
+    // ФЛАГ ДЛЯ ОТСЛЕЖИВАНИЯ ИЗМЕНЕНИЙ
+    let dataChanged = false;
     
     // Обработчик клика по кнопке просмотра
     $('.view-detail').on('click', function() {
         var detailId = $(this).data('detail-id');
         loadDetailData(detailId);
+        // Сбрасываем флаг при открытии нового модального окна
+        dataChanged = false;
     });
     
+    // ОБРАБОТЧИК ЗАКРЫТИЯ МОДАЛЬНОГО ОКНА
+    $('#detailModal').on('hidden.bs.modal', function () {
+        if (dataChanged) {
+            // Показываем уведомление о перезагрузке
+            showNotification('info', 'Данные изменены. Страница будет перезагружена...');
+            
+            // Небольшая задержка для показа уведомления
+            setTimeout(function() {
+                location.reload();
+            }, 500);
+        }
+    });
+
     // Функция загрузки данных детали
     function loadDetailData(detailId) {
         // Показываем загрузчик, скрываем контент
@@ -190,12 +208,21 @@ $(document).ready(function() {
                 `);
             }
             
+            // actionsDiv.append(`
+            //     <button class="btn btn-outline-secondary" title="Редактировать">
+            //         <i class="bi bi-pencil"></i>
+            //     </button>
+            // `);
             actionsDiv.append(`
-                <button class="btn btn-outline-secondary" title="Редактировать">
+                <a href="/admin/core/stage/${stage.id}/change/"
+                    target="_blank"
+                    class="btn btn-outline-secondary"
+                    title="Редактировать"
+                >
                     <i class="bi bi-pencil"></i>
-                </button>
+                </a>
             `);
-            
+
             actionsCell.append(actionsDiv);
             row.append(actionsCell);
             
@@ -221,6 +248,9 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
+                    // УСТАНАВЛИВАЕМ ФЛАГ ИЗМЕНЕНИЙ
+                    dataChanged = true;
+
                     $('#completionPercent').text(response.completion_percent + '%');
                     $('#completionProgressBar').css('width', response.completion_percent + '%');
                     updateCompletionChart(response.completion_percent);
@@ -253,6 +283,9 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
+                    // УСТАНАВЛИВАЕМ ФЛАГ ИЗМЕНЕНИЙ
+                    dataChanged = true;
+
                     // Обновляем строку этапа
                     button.closest('tr').find('td:eq(4)').html('<span class="badge bg-success stage-badge"><i class="bi bi-check-circle-fill"></i> Выполнен</span>');
                     button.closest('td').find('.complete-stage').remove();
@@ -292,7 +325,17 @@ $(document).ready(function() {
     // Обработчик кнопки редактирования
     $('#editDetailBtn').on('click', function() {
         var detailId = $(this).data('detail-id');
-        // Здесь можно открыть форму редактирования
-        alert('Функция редактирования в разработке. ID детали: ' + detailId);
+        var adminUrl = '/admin/core/detail/' + detailId + '/change/';
+
+        // УСТАНАВЛИВАЕМ ФЛАГ ИЗМЕНЕНИЙ (так как открывается админка для редактирования)
+        dataChanged = true;
+
+        window.open(adminUrl, '_blank');
+    });
+
+    // Дополнительно: обработчик для назначения станка (если есть такая функция)
+    $(document).on('click', '.assign-machine', function() {
+        // Если есть логика назначения станка, тоже устанавливаем флаг
+        dataChanged = true;
     });
 });

@@ -196,7 +196,7 @@
     </div>
     
     <div class="btn-group">
-        <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+        {% comment %} <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
             <i class="bi bi-download me-1"></i>Экспорт
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
@@ -205,8 +205,11 @@
             <li><a class="dropdown-item" href="#" id="exportPDF"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="#" id="print"><i class="bi bi-printer me-2"></i>Печать</a></li>
-        </ul>
-        <a href="#" class="btn btn-primary">
+        </ul> {% endcomment %}
+        <a href="{% url 'admin:core_detail_add' %}" 
+            target="_blank" 
+            class="btn btn-primary"
+        >
             <i class="bi bi-plus-lg me-1"></i>Новая деталь
         </a>
     </div>
@@ -284,7 +287,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if detail.status.name == 'Готово' %}
+                        {% if detail.status.name == 'Выполнено' %}
                         <span class="badge bg-success badge-status">
                             <i class="bi bi-check-circle me-1"></i>{{ detail.status.name }}
                         </span>
@@ -312,11 +315,11 @@
                         {% if detail.planned_completion_date %}
                             {% with days_left=detail.planned_completion_date|time_until %}
                             <span class="planned-date 
-                                {% if detail.planned_completion_date|is_overdue %}overdue
-                                {% elif detail.planned_completion_date < current_time|add_days:3 %}warning
+                                {% if detail.is_overdue %}overdue
+                                {% elif detail.is_warning %}warning
                                 {% endif %}">
                                 {{ detail.planned_completion_date|date:"d.m.Y" }}
-                                {% if detail.planned_completion_date|is_overdue %}
+                                {% if detail.is_overdue %}
                                 <i class="bi bi-exclamation-triangle-fill ms-1" title="Просрочено на {{ detail.planned_completion_date|timesince }}"></i>
                                 {% endif %}
                             </span>
@@ -359,7 +362,10 @@
                                     title="Просмотр" data-detail-id="{{ detail.id }}">
                                 <i class="bi bi-eye"></i>
                             </button>
-                            <a href="#" class="btn btn-outline-secondary" title="Редактировать">
+                            <a href="{% url 'admin:core_detail_change' detail.id %}"
+                                target="_blank"
+                                class="btn btn-outline-secondary"
+                                title="Редактировать">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <button type="button" class="btn btn-outline-danger" title="Удалить"
@@ -531,7 +537,7 @@ $(document).ready(function() {
 // Функция подтверждения удаления
 function confirmDelete(detailId) {
     var detailRow = $('#detailsTable').DataTable().row($(event.target).closest('tr')).data();
-    var article = detailRow[0]; // Артикул в первой колонке
+    var article = $(detailRow[0]).text(); // Артикул в первой колонке
     
     $('#deleteArticle').text(article);
     $('#deleteForm').attr('action', '/details/' + detailId + '/delete/');

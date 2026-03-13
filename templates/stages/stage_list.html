@@ -241,15 +241,18 @@
     </div>
     
     <div class="btn-group">
-        <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+        {% comment %} <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
             <i class="bi bi-download me-1"></i>Экспорт
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="#" id="exportExcel"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
             <li><a class="dropdown-item" href="#" id="exportCSV"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>CSV</a></li>
             <li><a class="dropdown-item" href="#" id="exportPDF"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
-        </ul>
-        <a href="#" class="btn btn-primary">
+        </ul> {% endcomment %}
+        <a href="{% url 'admin:core_stage_add' %}" 
+            target="_blank" 
+            class="btn btn-primary"
+        >
             <i class="bi bi-plus-lg me-1"></i>Новый этап
         </a>
     </div>
@@ -429,22 +432,35 @@
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <a href="#" class="btn btn-outline-primary" title="Просмотр">
+                            {% comment %} <a href="#" class="btn btn-outline-primary" title="Просмотр">
                                 <i class="bi bi-eye"></i>
-                            </a>
-                            <a href="#" class="btn btn-outline-secondary" title="Редактировать">
+                            </a> {% endcomment %}
+                            <a href="{% url 'admin:core_stage_change' stage.id %}" 
+                                target="_blank"  
+                                class="btn btn-outline-secondary" 
+                                title="Редактировать"
+                            >
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <button type="button" class="btn btn-outline-success" title="Отметить выполнение"
+                            {% comment %} <button type="button" class="btn btn-outline-success" title="Отметить выполнение"
                                     onclick="markComplete({{ stage.id }})"
                                     {% if stage.is_completed %}disabled{% endif %}>
                                 <i class="bi bi-check-lg"></i>
+                            </button> {% endcomment %}
+                            <button type="button" 
+                                    class="btn btn-outline-success mark-complete-btn" 
+                                    title="Отметить выполнение"
+                                    data-stage-id="{{ stage.id }}"
+                                    data-detail-info="{{ stage.detail.article }}"
+                                    data-detail-id="{{ stage.detail.id }}"
+                                    {% if stage.is_completed %}disabled{% endif %}>
+                                <i class="bi bi-check-lg"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-warning" title="Назначить станок"
+                            {% comment %} <button type="button" class="btn btn-outline-warning" title="Назначить станок"
                                     onclick="assignMachine({{ stage.id }})"
                                     {% if stage.machine %}disabled{% endif %}>
                                 <i class="bi bi-cpu"></i>
-                            </button>
+                            </button> {% endcomment %}
                         </div>
                     </td>
                 </tr>
@@ -578,7 +594,11 @@
 
 {% block extra_js %}
 <script>
-$(document).ready(function() {
+$(document).ready(function() {   
+    // Проверим, что кнопки вообще существуют в DOM
+    if ($('.mark-complete-btn').length > 0) {
+        console.log('Первая кнопка:', $('.mark-complete-btn').first());
+    }
     // Инициализация DataTables
     var table = $('#stagesTable').DataTable({
         language: {
@@ -687,10 +707,86 @@ $(document).ready(function() {
     tooltipTriggerList.map(function(tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+
+    // Обработчик для кнопок отметки выполнения
+    $(document).on('click', '.mark-complete-btn', function() {
+        let stageId = $(this).data('stage-id');
+        let detailInfo = $(this).data('detail-info');
+        let detailId = $(this).data('detail-id');
+
+        $('#completeDetail').text(detailInfo);
+        $('#completeForm').attr('action', `/details/${detailId}/stage/${stageId}/complete/`);
+
+        // Открываем модалку
+        var modalEl = document.getElementById('completeModal');
+        var modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        // Подтверждение выполнения через форму
+        $('#completeForm').off('submit').on('submit', function(e) {
+            e.preventDefault(); // предотвращаем обычную отправку
+
+            $.ajax({
+                url: `/details/${detailId}/stage/${stageId}/complete/`,
+                method: 'POST',
+                data: {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Закрываем модалку
+                        modal.hide();
+
+                        // Обновляем страницу (или можно только таблицу)
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Произошла ошибка при отправке запроса');
+                }
+            });
+        });
+    });
+
+    // Сохраняем ссылку на график для обновления
+    window.stagesChart = stagesChart;
+    
+    // Устанавливаем минимальные даты для полей выбора
+    var now = new Date();
+    var minDateTime = now.toISOString().slice(0, 16);
+    $('#plannedStart').attr('min', minDateTime);
+    $('#plannedEnd').attr('min', minDateTime);
+    
+    // Автоматическое обновление планового завершения при изменении начала
+    $('#plannedStart').on('change', function() {
+        var startDate = new Date($(this).val());
+        if (startDate) {
+            var endDate = new Date(startDate);
+            endDate.setHours(endDate.getHours() + 8); // +8 часов по умолчанию
+            $('#plannedEnd').val(endDate.toISOString().slice(0, 16));
+        }
+    });
+    
+    // Подтверждение перед удалением
+    $('.btn-outline-danger').on('click', function(e) {
+        if (!confirm('Вы уверены, что хотите удалить этот этап?')) {
+            e.preventDefault();
+        }
+    });
+    
+    // Подсветка строк при наведении
+    $('#stagesTable tbody tr').hover(
+        function() { $(this).addClass('table-active'); },
+        function() { $(this).removeClass('table-active'); }
+    );
+
 });
 
-// Функция для отметки выполнения
+{% comment %} // Функция для отметки выполнения
 function markComplete(stageId) {
+    console.log('=========================')
     var row = $('#stagesTable').DataTable().row($(event.target).closest('tr')).data();
     var detailInfo = row[0]; // Информация о детали
     
@@ -698,8 +794,10 @@ function markComplete(stageId) {
     $('#completeForm').attr('action', '/stages/' + stageId + '/complete/');
     
     var modal = new bootstrap.Modal(document.getElementById('completeModal'));
+    console.log(modal)
     modal.show();
-}
+    console.log('++++++++++++++++++++')
+} {% endcomment %}
 
 // Функция для назначения станка
 function assignMachine(stageId) {
@@ -844,41 +942,6 @@ $('#exportPDF').on('click', function(e) {
     alert('Функция экспорта в PDF находится в разработке');
 });
 
-// Инициализация при загрузке страницы
-$(document).ready(function() {
-    // Сохраняем ссылку на график для обновления
-    window.stagesChart = stagesChart;
-    
-    // Устанавливаем минимальные даты для полей выбора
-    var now = new Date();
-    var minDateTime = now.toISOString().slice(0, 16);
-    $('#plannedStart').attr('min', minDateTime);
-    $('#plannedEnd').attr('min', minDateTime);
-    
-    // Автоматическое обновление планового завершения при изменении начала
-    $('#plannedStart').on('change', function() {
-        var startDate = new Date($(this).val());
-        if (startDate) {
-            var endDate = new Date(startDate);
-            endDate.setHours(endDate.getHours() + 8); // +8 часов по умолчанию
-            $('#plannedEnd').val(endDate.toISOString().slice(0, 16));
-        }
-    });
-    
-    // Подтверждение перед удалением
-    $('.btn-outline-danger').on('click', function(e) {
-        if (!confirm('Вы уверены, что хотите удалить этот этап?')) {
-            e.preventDefault();
-        }
-    });
-    
-    // Подсветка строк при наведении
-    $('#stagesTable tbody tr').hover(
-        function() { $(this).addClass('table-active'); },
-        function() { $(this).removeClass('table-active'); }
-    );
-});
-
 // Обработка клавиатурных сокращений
 $(document).on('keydown', function(e) {
     // Ctrl+F - фокус на поиск
@@ -952,5 +1015,6 @@ function updateStageStatus(stageId, completed) {
         }
     });
 }
+</script>
 
 {% endblock extra_js %}

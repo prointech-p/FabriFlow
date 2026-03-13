@@ -13,6 +13,8 @@ urlpatterns = [
     path('details/<int:pk>/recalculate/', views.detail_recalculate, name='detail_recalculate'),
     path('details/<int:pk>/stage/<int:stage_id>/complete/', views.stage_complete, name='stage_complete'),
     path('api/detail/<int:pk>/', views.detail_api, name='detail_api'),
+    path('api/available-details/', views.available_details_api, name='api_available_details'),
+    path('api/detail/<int:detail_id>/stages/', views.detail_stages_api, name='api_detail_stages'),
     # path(
     #     "details/<int:id>/",
     #     views.detail_card,
@@ -23,6 +25,9 @@ urlpatterns = [
         views.machine_list,
         name="machines"
     ),
+    path('machines/<int:machine_id>/assign/', 
+         views.assign_task_to_machine, 
+         name='assign_task_to_machine'),
     path(
         "stages/",
         views.stage_list,

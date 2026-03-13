@@ -106,7 +106,7 @@
     </div>
     
     <div class="btn-group">
-        <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+        {% comment %} <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
             <i class="bi bi-download me-1"></i>Экспорт
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
@@ -115,8 +115,11 @@
             <li><a class="dropdown-item" href="#" id="exportPDF"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="#" id="print"><i class="bi bi-printer me-2"></i>Печать</a></li>
-        </ul>
-        <a href="#" class="btn btn-primary">
+        </ul> {% endcomment %}
+        <a href="{% url 'admin:core_machine_add' %}" 
+            target="_blank" 
+            class="btn btn-primary"
+        >
             <i class="bi bi-plus-lg me-1"></i>Новый станок
         </a>
     </div>
@@ -295,20 +298,24 @@
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <a href="#" class="btn btn-outline-primary" title="Просмотр">
+                            {% comment %} <a href="#" class="btn btn-outline-primary" title="Просмотр">
                                 <i class="bi bi-eye"></i>
-                            </a>
-                            <a href="#" class="btn btn-outline-secondary" title="Редактировать">
+                            </a> {% endcomment %}
+                            <a href="{% url 'admin:core_machine_change' machine.id %}" 
+                                target="_blank"
+                                class="btn btn-outline-secondary" 
+                                title="Редактировать"
+                            >
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <button type="button" class="btn btn-outline-info" title="Назначить задачу"
                                     onclick="assignTask({{ machine.id }})">
                                 <i class="bi bi-plus-circle"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-warning" title="Отметить ТО"
+                            {% comment %} <button type="button" class="btn btn-outline-warning" title="Отметить ТО"
                                     onclick="markMaintenance({{ machine.id }})">
                                 <i class="bi bi-tools"></i>
-                            </button>
+                            </button> {% endcomment %}
                         </div>
                     </td>
                 </tr>
@@ -562,7 +569,7 @@ function markMaintenance(machineId) {
 }
 
 // Функция для назначения задачи
-function assignTask(machineId) {
+/*function assignTask(machineId) {
     $('#assignForm').attr('data-machine-id', machineId);
     
     // Здесь можно загрузить список доступных деталей через AJAX
@@ -577,10 +584,50 @@ function assignTask(machineId) {
     
     var modal = new bootstrap.Modal(document.getElementById('assignModal'));
     modal.show();
+}*/
+
+// Функция открытия модального окна назначения
+function assignTask(machineId) {
+    const form = $('#assignForm');
+    form.attr('data-machine-id', machineId);
+
+    // Очистка и индикация загрузки
+    const detailSelect = form.find('select[name="detail"]');
+    detailSelect.empty().append('<option value="">Загрузка деталей...</option>');
+
+    const stageSelect = form.find('select[name="stage"]');
+    stageSelect.empty().append('<option value="">Сначала выберите деталь</option>').prop('disabled', true);
+
+    // Загружаем список деталей
+    $.ajax({
+        url: '/api/available-details/',
+        method: 'GET',
+        timeout: 8000,
+        success: function(data) {
+            detailSelect.empty().append('<option value="">Выберите деталь...</option>');
+            data.forEach(item => {
+                detailSelect.append(
+                    `<option value="${item.id}" 
+                             data-completion="${item.completion}"
+                             data-status="${item.status}">
+                        ${item.article} — ${item.name} (${item.status}, ${item.completion}%)
+                     </option>`
+                );
+            });
+        },
+        error: function(xhr, status, error) {
+            detailSelect.empty().append('<option value="">Ошибка загрузки деталей</option>');
+            console.error('Ошибка загрузки деталей:', status, error);
+        }
+    });
+
+    const modalEl = document.getElementById('assignModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
 }
 
 // Сохранение назначения
-$('#saveAssignment').on('click', function() {
+/*$('#saveAssignment').on('click', function() {
     var formData = $('#assignForm').serialize();
     var machineId = $('#assignForm').data('machine-id');
     
@@ -591,10 +638,94 @@ $('#saveAssignment').on('click', function() {
             alert('Ошибка при назначении задачи');
         }
     });
+});*/
+
+// Динамическая загрузка этапов при выборе детали
+$('#assignForm').on('change', 'select[name="detail"]', function() {
+    const detailId = this.value;
+    const stageSelect = $('#assignForm select[name="stage"]');
+
+    if (!detailId) {
+        stageSelect.empty()
+            .append('<option value="">Сначала выберите деталь</option>')
+            .prop('disabled', true);
+        return;
+    }
+
+    stageSelect.empty().append('<option value="">Загрузка этапов...</option>').prop('disabled', false);
+
+    $.ajax({
+        url: `/api/detail/${detailId}/stages/`,
+        method: 'GET',
+        success: function(data) {
+            stageSelect.empty().append('<option value="">Выберите этап...</option>');
+            data.forEach(item => {
+                stageSelect.append(
+                    `<option value="${item.id}">
+                        ${item.order}. ${item.name} ${item.machine ? `(${item.machine})` : '(станок не указан)'}
+                     </option>`
+                );
+            });
+
+            if (data.length === 0) {
+                stageSelect.append('<option value="" disabled>Нет незавершённых этапов</option>');
+            }
+        },
+        error: function() {
+            stageSelect.empty().append('<option value="">Ошибка загрузки этапов</option>');
+        }
+    });
+});
+
+// Сохранение назначения
+$('#saveAssignment').on('click', function() {
+    const form = $('#assignForm');
+    const machineId = form.data('machine-id');
+    const detailId  = form.find('select[name="detail"]').val();
+    const stageId   = form.find('select[name="stage"]').val();
+    const start     = form.find('input[name="planned_start"]').val();
+    const end       = form.find('input[name="planned_end"]').val();
+    const notes     = form.find('textarea[name="notes"]').val();
+
+    if (!detailId || !stageId || !start || !end) {
+        alert('Заполните все обязательные поля: деталь, этап, даты начала и окончания');
+        return;
+    }
+
+    const postData = {
+        detail: detailId,
+        stage: stageId,           // ← важно: передаём id этапа Stage, а не StageType
+        planned_start: start,
+        planned_end: end,
+        notes: notes || '',
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+    };
+
+    $.ajax({
+        url: `/machines/${machineId}/assign/`,
+        method: 'POST',
+        data: postData,
+        success: function(response) {
+            if (response.success) {
+                alert('Задача успешно назначена');
+                bootstrap.Modal.getInstance(document.getElementById('assignModal')).hide();
+                location.reload();  // или обновить только строку в таблице
+            } else {
+                alert('Ошибка: ' + (response.error || 'неизвестная ошибка'));
+            }
+        },
+        error: function(xhr) {
+            let msg = 'Ошибка сервера';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                msg = xhr.responseJSON.error;
+            }
+            alert(msg);
+        }
+    });
 });
 
 // Обновление загрузки в реальном времени (можно добавить WebSocket)
-function updateLoadIndicators() {
+/*function updateLoadIndicators() {
     $.get('/api/machines/load/', function(data) {
         $.each(data, function(i, machine) {
             var row = $('#machinesTable').DataTable().row(function(idx, data, node) {
@@ -608,7 +739,7 @@ function updateLoadIndicators() {
             }
         });
     });
-}
+}*/
 
 // Обновление каждые 30 секунд
 setInterval(updateLoadIndicators, 30000);
