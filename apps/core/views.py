@@ -3,7 +3,7 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import (
-    Q, Count, F, 
+    Q, Count, F, Max,
     Value, IntegerField, Case, When, 
     Avg, DurationField, ExpressionWrapper,
     OuterRef, Subquery
@@ -145,12 +145,49 @@ def dashboard(request):
             })
     
     # ==================== ГРАФИК ВЫПОЛНЕНИЯ ЭТАПОВ ПО ДНЯМ ====================
-    # Последние 7 дней
+    # # Последние 7 дней
+    # last_7_days = []
+    # completed_by_day = []
+    
+    # for i in range(6, -1, -1):
+    #     day = now - timedelta(days=i)
+    #     day_start = datetime(day.year, day.month, day.day, tzinfo=now.tzinfo)
+    #     day_end = day_start + timedelta(days=1)
+        
+    #     completed_count = Stage.objects.filter(
+    #         is_deleted=False,
+    #         is_completed=True,
+    #         completion_date__range=(day_start, day_end)
+    #     ).count()
+        
+    #     last_7_days.append(day.strftime('%d.%m'))
+    #     completed_by_day.append(completed_count)
+
+    # ==================== ГРАФИК ВЫПОЛНЕНИЯ ЭТАПОВ (от последней даты с данными) ====================
+
+    # Находим последнюю дату, когда был завершен хоть один этап
+
+    last_completion = Stage.objects.filter(
+        is_deleted=False,
+        is_completed=True,
+        completion_date__isnull=False
+    ).aggregate(Max('completion_date'))['completion_date__max']
+
+    if last_completion is None:
+        # Если данных нет — показываем последние 7 реальных дней (или пустой график)
+        last_completion = now
+
+    last_completion = last_completion + timedelta(days=3)
+    # Берем 7 дней, заканчивая last_completion (включительно)
+    # last_completion может быть в будущем? нет, но на всякий случай ограничим now
+    end_date = min(last_completion, now)  # чтобы не заглядывать в будущее
+
     last_7_days = []
     completed_by_day = []
-    
+
     for i in range(6, -1, -1):
-        day = now - timedelta(days=i)
+        day = end_date - timedelta(days=i)  # идем от end_date - 6 дней до end_date
+        
         day_start = datetime(day.year, day.month, day.day, tzinfo=now.tzinfo)
         day_end = day_start + timedelta(days=1)
         
@@ -194,10 +231,14 @@ def dashboard(request):
     workshop_status = []
     for workshop in workshops[:6]:  # Ограничим до 6 цехов для графика
         machines = workshop.machines.filter(is_deleted=False)
+        print(machines)
         workshop_status.append({
             'workshop': workshop.name,
-            'active': machines.filter(status__name__icontains='работа').count(),
-            'idle': machines.filter(status__name__icontains='ожида').count(),
+            'active': machines.filter(status__name__icontains='работ').count(),
+            'idle': machines.filter(
+                Q(status__name__icontains='Заморож') | 
+                Q(status__name__icontains='Ожид')
+            ).count(),
             'maintenance': machines.filter(
                 Q(status__name__icontains='ремонт') | 
                 Q(status__name__icontains='неисправ')
@@ -205,15 +246,31 @@ def dashboard(request):
         })
     
     # ==================== ДЕТАЛИ С ВЫСОКИМ РИСКОМ ПРОСРОЧКИ ====================
+    # Находим последнюю дату, когда был завершен хоть один этап
+
+    last_planned_completion_date = Detail.objects.filter(
+        is_deleted=False,
+        completion_percent__lt=70,
+        planned_completion_date__isnull=False
+    ).aggregate(Max('planned_completion_date'))['planned_completion_date__max']
+
+    if last_planned_completion_date is None:
+        # Если данных нет — показываем последние 7 реальных дней (или пустой график)
+        last_planned_completion_date = now
+
+    now_date = last_planned_completion_date + timedelta(days=-1)
+
+    # now_date = now
+    
     at_risk_details = Detail.objects.filter(
         is_deleted=False,
-        planned_completion_date__lt=now + timedelta(days=3),
-        planned_completion_date__gte=now,
+        planned_completion_date__lt=now_date + timedelta(days=3),
+        planned_completion_date__gte=now_date,
         completion_percent__lt=70
     ).exclude(
         status__name__icontains='готов'
     ).select_related('status')[:5]
-    
+
     context = {
         'now': now,
         'details_stats': details_stats,
